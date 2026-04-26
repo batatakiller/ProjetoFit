@@ -136,6 +136,7 @@ async def upload_exam(file: UploadFile = File(...)):
     Estes marcadores são OBRIGATÓRIOS e devem ser sempre extraídos, mesmo que pareçam estar em seções secundárias do laudo:
     - "Resultado HBA1C" e "Glicose Média Estimada" (sub-itens de Hemoglobina Glicada)
     - "DHT - Dihidrotestosterona"
+    - "Estradiol"
     - "PSA Total", "PSA Livre" e "Relação PSA Livre/Total"
     - "Vitamina C"
     - "Índice de Saturação da Transferrina"
@@ -157,6 +158,7 @@ async def upload_exam(file: UploadFile = File(...)):
     - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
     - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Use `name = "HbA1c (%)"` para o resultado percentual e `name = "Glicose Média Estimada"` para a glicose estimada. NUNCA use variantes como "Resultado HBA1C", "HBA1C", "Hemoglobina Glicada Fração A1c".
     - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
+    - Sempre use "Hormônio Folículo Estimulante - FSH" (use "-" e não "/").
     - Mantenha nomes curtos e objetivos.
 
     🩸 REGRA ESPECIAL — HEMOGRAMA:
