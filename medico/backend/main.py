@@ -132,6 +132,15 @@ async def upload_exam(file: UploadFile = File(...)):
     - IGNORE "Valores de Referência", faixas normais e comentários interpretativos.
     - IGNORE gráficos de evolução.
 
+    ✅ NUNCA IGNORE — MARCADORES OBRIGATÓRIOS:
+    Estes marcadores são OBRIGATÓRIOS e devem ser sempre extraídos, mesmo que pareçam estar em seções secundárias do laudo:
+    - "Resultado HBA1C" e "Glicose Média Estimada" (sub-itens de Hemoglobina Glicada)
+    - "PSA Total", "PSA Livre" e "Relação PSA Livre/Total"
+    - "Vitamina C"
+    - "Índice de Saturação da Transferrina"
+    - "Ácido Fólico"
+    - Todos os sub-itens de exames compostos (Hemograma, Coagulograma, Colesterol e Frações)
+
     🔬 CAMPOS POR BIOMARCADOR:
     - `name`: Nome exato do exame (ex: "Ferro Sérico", "Hemoglobina").
     - `value`: Valor numérico do resultado atual (float). Extraia apenas os números, mesmo que o laudo contenha prefixos como "<", ">", "Superior a" ou "Inferior a". (Ex: "Superior a 24,80" vira 24.80). Se for puramente textual sem números (ex: "Negativo"), use 0.0.
@@ -145,7 +154,7 @@ async def upload_exam(file: UploadFile = File(...)):
 
     🧪 NORMALIZAÇÃO DE NOMES:
     - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
-    - Sempre use "Hemoglobina Glicada (HbA1c)" para frações A1c.
+    - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Extraia tanto o "Resultado HBA1C" quanto a "Glicose Média Estimada" como itens filhos.
     - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
     - Mantenha nomes curtos e objetivos.
 
