@@ -13,7 +13,20 @@ import {
 import axios from 'axios';
 
 // Mock Data
-const MOCK_BIOMARKERS = {
+interface DataPoint {
+    date: string;
+    value: number;
+}
+
+interface Biomarker {
+    name: string;
+    unit: string;
+    data: DataPoint[];
+    ref: string;
+    trend: string;
+}
+
+const MOCK_BIOMARKERS: Record<string, Biomarker[]> = {
     hormonal: [
         { name: 'Testosterona Total', unit: 'ng/dL', data: [
             { date: '2024-01-15', value: 520 }, { date: '2024-02-20', value: 580 },
@@ -29,7 +42,9 @@ const MOCK_BIOMARKERS = {
             { date: '2024-01-15', value: 1.1 }, { date: '2024-02-20', value: 1.15 },
             { date: '2024-03-18', value: 1.12 }, { date: '2024-04-25', value: 1.08 }
         ], ref: '0.7-1.3', trend: 'stable' }
-    ]
+    ],
+    vitaminas: [],
+    hemograma: []
 };
 
 const CATEGORIES = {
@@ -111,7 +126,8 @@ function UploadView() {
 
             try {
                 // Call FastAPI backend
-                const res = await axios.post('http://localhost:8000/upload', formData);
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const res = await axios.post(`${apiUrl}/upload`, formData);
                 setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Upload concluído. ' + res.data.message }]);
                 // Simulating processing complete
                 setTimeout(() => setProcessing(false), 2000);
@@ -161,7 +177,7 @@ function DashboardView() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {currentData.map((marker, i) => (
+                {currentData.map((marker: Biomarker, i: number) => (
                     <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <h3 className="font-bold text-sm mb-4">{marker.name} ({marker.unit})</h3>
                         <div className="h-64">
@@ -195,7 +211,8 @@ function ChatAgent() {
         const query = msg;
         setMsg("");
         try {
-            const res = await axios.post('http://localhost:8000/chat', { message: query });
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await axios.post(`${apiUrl}/chat`, { message: query });
             setHistory(prev => [...prev, { role: 'ai', content: res.data.response }]);
         } catch (e) {
             setHistory(prev => [...prev, { role: 'ai', content: "Erro ao conectar com FastAPI." }]);
@@ -224,7 +241,7 @@ function ChatAgent() {
                 <div className="bg-white border border-slate-100 p-3 rounded-xl rounded-tl-none shadow-sm text-sm text-slate-700">
                     Olá! Sou o Assistente IA conectado aos laudos do paciente. O que você gostaria de analisar?
                 </div>
-                {history.map((h, i) => (
+                {history.map((h: {role: string, content: string}, i: number) => (
                     <div key={i} className={`flex ${h.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`p-3 rounded-xl max-w-[85%] text-sm shadow-sm ${
                             h.role === 'user' ? 'bg-teal-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'
