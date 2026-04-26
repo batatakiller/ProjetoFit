@@ -113,41 +113,118 @@ function ProfileView() {
 function UploadView() {
     const [file, setFile] = useState<File | null>(null);
     const [processing, setProcessing] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState<{time:string, msg:string}[]>([]);
 
     const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
             setProcessing(true);
-            setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Iniciando upload para o Backend FastAPI...' }]);
+            setProgress(10);
+            setLogs([{ time: new Date().toLocaleTimeString(), msg: 'Arquivo selecionado: ' + selectedFile.name }]);
             
             const formData = new FormData();
-            formData.append('file', e.target.files[0]);
+            formData.append('file', selectedFile);
+
+            // Simulating steps
+            const interval = setInterval(() => {
+                setProgress(prev => {
+                    if (prev < 90) return prev + Math.random() * 5;
+                    return prev;
+                });
+            }, 500);
 
             try {
-                // Call FastAPI backend
+                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Enviando para o servidor e processando com Gemini 2.5 Flash...' }]);
                 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
                 const res = await axios.post(`${apiUrl}/upload`, formData);
-                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Upload concluído. ' + res.data.message }]);
-                // Simulating processing complete
-                setTimeout(() => setProcessing(false), 2000);
+                
+                clearInterval(interval);
+                setProgress(100);
+                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Sucesso! ' + res.data.message }]);
+                
+                setTimeout(() => {
+                    setProcessing(false);
+                    setProgress(0);
+                }, 3000);
             } catch (err) {
+                clearInterval(interval);
                 console.error(err);
-                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Erro no processamento.' }]);
+                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Erro durante o processamento do exame.' }]);
                 setProcessing(false);
+                setProgress(0);
             }
         }
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <h2 className="text-2xl font-bold">Importar Exame (Supabase + Gemini 2.5 Flash)</h2>
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center hover:border-teal-500 transition-all relative">
-                <Upload className="w-8 h-8 mx-auto text-slate-400 mb-4" />
-                <h3 className="font-semibold text-slate-700">Selecione o PDF</h3>
-                <input type="file" accept=".pdf" onChange={handleFile} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        <div className="max-w-4xl mx-auto space-y-8">
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">Importar Exame</h2>
+                    <p className="text-slate-500 mt-1">O Gemini 2.5 Flash irá extrair automaticamente os biomarcadores e gerar o conhecimento para o chat.</p>
+                </div>
             </div>
-            {logs.map((log, i) => <div key={i} className="text-xs text-slate-500">[{log.time}] {log.msg}</div>)}
+
+            <div className={`relative border-2 border-dashed rounded-3xl p-16 text-center transition-all duration-300 ${
+                processing ? 'border-teal-500 bg-teal-50/30' : 'border-slate-200 hover:border-teal-400 bg-white shadow-sm'
+            }`}>
+                {!processing ? (
+                    <>
+                        <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Upload className="w-10 h-10 text-teal-600" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-slate-700 mb-2">Selecione seu Laudo Médico</h3>
+                        <p className="text-slate-500 mb-8 max-w-sm mx-auto text-sm">Arraste ou clique para selecionar o arquivo PDF. Garantimos o processamento seguro dos seus dados.</p>
+                        <input type="file" accept=".pdf" onChange={handleFile} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <button className="px-8 py-3 bg-teal-600 text-white rounded-xl font-semibold shadow-lg shadow-teal-600/20 hover:bg-teal-700 transition-all">
+                            Selecionar PDF
+                        </button>
+                    </>
+                ) : (
+                    <div className="space-y-8">
+                        <div className="relative w-24 h-24 mx-auto">
+                            <div className="absolute inset-0 border-4 border-teal-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-teal-500 rounded-full border-t-transparent animate-spin"></div>
+                            <Brain className="absolute inset-0 m-auto w-10 h-10 text-teal-600 animate-pulse" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-semibold text-teal-800 mb-2">Processando com IA...</h3>
+                            <div className="max-w-md mx-auto w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-4">
+                                <div 
+                                    className="bg-teal-500 h-full transition-all duration-500 ease-out" 
+                                    style={{ width: `${progress}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-slate-500 text-sm mt-3 font-medium">{Math.round(progress)}% Concluído</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="bg-slate-900 rounded-2xl p-6 shadow-xl overflow-hidden">
+                <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-4 h-4 text-teal-400" />
+                    <span className="text-xs font-bold text-teal-400 uppercase tracking-widest">Logs de Processamento</span>
+                </div>
+                <div className="space-y-2 font-mono text-[11px] max-h-48 overflow-y-auto custom-scrollbar">
+                    {logs.map((log, i) => (
+                        <div key={i} className="flex gap-4 items-start border-l border-slate-800 pl-4">
+                            <span className="text-slate-500 shrink-0">{log.time}</span>
+                            <span className={log.msg.includes('Sucesso') ? 'text-teal-400' : 'text-slate-300'}>
+                                {log.msg}
+                            </span>
+                        </div>
+                    ))}
+                    {processing && (
+                        <div className="flex gap-2 items-center text-teal-500 animate-pulse pl-4 border-l border-teal-500">
+                            <span className="w-1 h-1 bg-teal-500 rounded-full"></span>
+                            <span>Aguardando resposta do Gemini 2.5 Flash...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
