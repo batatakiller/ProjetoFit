@@ -38,10 +38,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and
 
 # Initialize Gemini
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-ai_client = genai.Client(
-    api_key=GEMINI_API_KEY,
-    http_options={'api_version': 'v1'}
-) if GEMINI_API_KEY else None
+ai_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 class ChatRequest(BaseModel):
     message: str
@@ -165,7 +162,7 @@ async def upload_exam(file: UploadFile = File(...)):
     # 5. Generate and save Embedding for RAG
     try:
         embed_res = ai_client.models.embed_content(
-            model='models/text-embedding-004',
+            model='models/gemini-embedding-2',
             contents=extraction.clean_text
         )
         embedding = embed_res.embeddings[0].values
@@ -193,7 +190,7 @@ async def chat_with_agent(req: ChatRequest):
     try:
         # 1. Embed the user's query
         embed_res = ai_client.models.embed_content(
-            model='text-embedding-004',
+            model='models/gemini-embedding-2',
             contents=req.message
         )
         query_embedding = embed_res.embeddings[0].values
@@ -228,7 +225,7 @@ async def chat_with_agent(req: ChatRequest):
 
         # 4. Generate answer
         response = ai_client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="models/gemini-2.0-flash",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.4
