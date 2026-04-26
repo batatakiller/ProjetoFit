@@ -176,8 +176,11 @@ async def upload_exam(file: UploadFile = File(...)):
     ✅ AGRUPAMENTO DE EXAMES COMPOSTOS:
     - "PSA Livre / Total": Agrupe "Antígeno específico prostático total (PSA)", "Antígeno específico prostático livre (PSA livre)" e a "Relação" sob este `parent_name`.
     - "Hemoglobina Glicada (HbA1c)": Agrupe "Hemoglobina glicada (Fração A1c)" e "Glicose Média Estimada" sob este `parent_name`.
-    - "Hemograma": Divida em "Série Vermelha", "Série Branca" e "Plaquetas" conforme regras anteriores.
-    - "Perfil Lipídico": Agrupe "Colesterol Total", "HDL", "LDL", "VLDL" e "Triglicérides" sob este `parent_name`.
+    - "Hemograma": Divida em "Série Vermelha", "Série Branca" e "Plaquetas" conforme sub_category.
+    - "Colesterol Total e Frações": Agrupe "Colesterol Total", "HDL", "LDL", "VLDL" e "Triglicérides" sob este `parent_name`.
+    - "Função Hepática": Agrupe "TGO (AST)", "TGP (ALT)", "Gama GT", "Fosfatase Alcalina" sob este `parent_name`.
+    - "Função Renal": Agrupe "Creatinina", "Ureia", "TFG (CKD-EPI)" sob este `parent_name`.
+    - "Bilirrubina Total e Frações": Agrupe "Bilirrubina Total", "Direta" e "Indireta" sob este `parent_name`.
 
     ✅ NUNCA IGNORE — MARCADORES OBRIGATÓRIOS:
     Estes marcadores são OBRIGATÓRIOS e devem ser sempre extraídos:
