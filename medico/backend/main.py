@@ -96,6 +96,16 @@ async def upload_exam(file: UploadFile = File(...)):
     else:
         patient_id = patients_res.data[0]["id"]
 
+    # --- VERIFICAÇÃO DE DUPLICIDADE ---
+    existing_exam = supabase.table("exams").select("id").eq("file_path", file_path).eq("patient_id", patient_id).execute()
+    if existing_exam.data:
+        return {
+            "status": "warning",
+            "file_url": url,
+            "message": "Este exame já foi processado anteriormente. Duplicidade evitada."
+        }
+    # ----------------------------------
+
     # 3. Use Gemini to extract data
     prompt = """
     Você é um assistente médico especialista em análise laboratorial.
