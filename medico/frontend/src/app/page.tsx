@@ -241,7 +241,7 @@ function UploadView() {
 function DashboardView() {
     const [activeCategory, setActiveCategory] = useState<keyof typeof CATEGORIES | 'outros'>('hormonal');
     const [realData, setRealData] = useState<Record<string, Biomarker[]>>({
-        hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], outros: []
+        hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], coagulacao: [], outros: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -253,7 +253,7 @@ function DashboardView() {
                 
                 const rawData = res.data.data || [];
                 const grouped: Record<string, Biomarker[]> = {
-                    hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], outros: []
+                    hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], coagulacao: [], outros: []
                 };
 
                 const markerMap: Record<string, Biomarker> = {};
@@ -266,40 +266,46 @@ function DashboardView() {
                     else if (catStr.includes('vitam')) cat = 'vitaminas';
                     else if (catStr.includes('hemo')) cat = 'hemograma';
                     else if (catStr.includes('coagul') || catStr.includes('trombo') || catStr.includes('protromb')) cat = 'coagulacao';
-                    
-                    const key = row.parent_name || row.name;
-                    
+
+                    // Para Hemograma: criar um card por sub_category (Série Vermelha, Série Branca, Plaquetas)
+                    // Para outros agrupados (parent_name): um card por parent
+                    // Para itens sem parent: um card por name
+                    let key: string;
+                    if (row.parent_name === 'Hemograma' && row.sub_category) {
+                        key = `Hemograma — ${row.sub_category}`;
+                    } else {
+                        key = row.parent_name || row.name;
+                    }
+
                     if (!markerMap[key]) {
                         markerMap[key] = {
                             name: key,
-                            unit: row.parent_name ? '' : (row.unit || ''),
+                            unit: '',
                             data: [],
                             ref: row.reference_range || '-',
                             trend: 'stable',
-                            parentName: row.parent_name || undefined
+                            parentName: row.parent_name || undefined,
+                            subCategory: row.sub_category || undefined
                         };
+                        if (!grouped[cat]) grouped[cat] = [];
                         grouped[cat].push(markerMap[key]);
                     }
-                    
+
                     const date = row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
                     const value = row.value;
 
-                    // Deduplicar: não adicionar se já existir exatamente a mesma data e valor para este sub-item
-                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value && p.subName === row.name);
-                    if (!isDuplicate) {
-                        markerMap[key].data.push({ 
-                            date, 
-                            value, 
-                            subName: row.parent_name ? row.name : undefined,
-                            unit: row.unit
-                        });
+                    // Cada marcador individual vira um subName (para gráfico próprio dentro do card)
+                    const subName = row.name;
 
-                    // Update metadata from the most recent entry
-                    if (!markerMap[key].subCategory) markerMap[key].subCategory = row.sub_category || undefined;
-                    if (!markerMap[key].rawValue) markerMap[key].rawValue = row.raw_value || undefined;
-                    if (!markerMap[key].isAbnormal) markerMap[key].isAbnormal = row.is_abnormal || false;
+                    // Deduplicar
+                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value && p.subName === subName);
+                    if (!isDuplicate) {
+                        markerMap[key].data.push({ date, value, subName, unit: row.unit });
+                        if (!markerMap[key].rawValue) markerMap[key].rawValue = row.raw_value || undefined;
+                        if (!markerMap[key].isAbnormal) markerMap[key].isAbnormal = row.is_abnormal || false;
                     }
                 });
+
 
                 // Sort dates and calculate trends
                 Object.values(markerMap).forEach(m => {
