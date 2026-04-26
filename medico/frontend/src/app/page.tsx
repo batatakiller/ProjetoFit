@@ -253,7 +253,6 @@ function DashboardView() {
 
                 rawData.forEach((row: any) => {
                     const catStr = row.category ? row.category.toLowerCase() : 'outros';
-                    // Find matching standard category or use 'outros'
                     let cat = 'outros';
                     if (catStr.includes('hormon')) cat = 'hormonal';
                     else if (catStr.includes('bioquim') || catStr.includes('lipid')) cat = 'bioquimica';
@@ -267,7 +266,7 @@ function DashboardView() {
                             name: row.name,
                             unit: row.unit || '',
                             data: [],
-                            ref: '-',
+                            ref: row.reference_range || '-',
                             trend: 'stable'
                         };
                         grouped[cat].push(markerMap[key]);
@@ -301,70 +300,199 @@ function DashboardView() {
     }, []);
 
     const currentData = realData[activeCategory] || [];
-    
-    // Fallback if category info doesn't exist
     const catInfo = CATEGORIES[activeCategory as keyof typeof CATEGORIES] || { label: 'Outros', color: '#64748b', icon: Activity };
 
     if (loading) {
-        return <div className="p-8 text-center text-slate-500 animate-pulse">Carregando seus gráficos...</div>;
+        return (
+            <div className="flex flex-col items-center justify-center p-16 gap-4">
+                <div className="w-12 h-12 border-4 border-teal-100 border-t-teal-600 rounded-full animate-spin" />
+                <p className="text-slate-500 text-sm animate-pulse">Carregando histórico de exames...</p>
+            </div>
+        );
     }
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 pb-24">
-            <h2 className="text-2xl font-bold">Histórico Geral (Dados Reais)</h2>
+            {/* Header */}
+            <div>
+                <h2 className="text-2xl font-bold text-slate-800">Histórico Geral</h2>
+                <p className="text-slate-500 text-sm mt-1">Evolução dos biomarcadores ao longo do tempo</p>
+            </div>
+
+            {/* Category Tabs */}
             <div className="flex flex-wrap gap-2">
                 {[...Object.keys(CATEGORIES), 'outros'].map((k) => {
                     const info = CATEGORIES[k as keyof typeof CATEGORIES] || { label: 'Outros', color: '#64748b', icon: Activity };
                     const Icon = info.icon;
-                    // Only show tabs that have data, except for the primary ones if empty
-                    if (k === 'outros' && (!realData.outros || realData.outros.length === 0)) return null;
+                    const count = realData[k]?.length ?? 0;
+                    if (k === 'outros' && count === 0) return null;
                     
                     return (
                         <button key={k} onClick={() => setActiveCategory(k as any)}
-                            className={`flex gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
-                                activeCategory === k ? 'text-white' : 'bg-white text-slate-600'
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                activeCategory === k ? 'text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                             }`}
                             style={activeCategory === k ? { backgroundColor: info.color } : {}}>
-                            <Icon className="w-4 h-4" /> {info.label}
+                            <Icon className="w-4 h-4" />
+                            {info.label}
+                            {count > 0 && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                                    activeCategory === k ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                                }`}>{count}</span>
+                            )}
                         </button>
-                    )
+                    );
                 })}
             </div>
 
+            {/* Content */}
             {currentData.length === 0 ? (
-                <div className="p-12 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                    Nenhum biomarcador desta categoria encontrado nos exames importados.
+                <div className="p-16 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-white">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FileText className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 font-medium">Nenhum exame encontrado nesta categoria</p>
+                    <p className="text-slate-400 text-sm mt-1">Importe um laudo PDF para começar</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {currentData.map((marker: Biomarker, i: number) => (
-                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-sm mb-4 text-slate-700">{marker.name} <span className="text-slate-400 font-normal">({marker.unit})</span></h3>
-                            <div className="h-64">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={marker.data}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="date" tick={{fontSize: 12}} tickMargin={10} />
-                                        <YAxis tick={{fontSize: 12}} />
-                                        <Tooltip 
-                                            contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                                        />
-                                        <Area 
-                                            type="monotone" 
-                                            dataKey="value" 
-                                            stroke={catInfo.color} 
-                                            strokeWidth={3}
-                                            fill={catInfo.color} 
-                                            fillOpacity={0.15} 
-                                            activeDot={{r: 6, strokeWidth: 0}}
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
+                        <BiomarkerCard key={i} marker={marker} color={catInfo.color} />
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+function formatDate(dateStr: string): string {
+    try {
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y}`;
+    } catch {
+        return dateStr;
+    }
+}
+
+function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) {
+    const lastValue = marker.data.length > 0 ? marker.data[marker.data.length - 1] : null;
+    const TrendIcon = marker.trend === 'up' ? TrendingUp : marker.trend === 'down' ? TrendingDown : Minus;
+    const trendColor = marker.trend === 'up' ? '#10b981' : marker.trend === 'down' ? '#ef4444' : '#64748b';
+
+    // Custom dot renderer for LineChart
+    const CustomDot = (props: any) => {
+        const { cx, cy } = props;
+        return <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={2} />;
+    };
+
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div style={{
+                    background: '#1e293b',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.18)'
+                }}>
+                    <p style={{ color: '#94a3b8', fontSize: 11, marginBottom: 2 }}>{formatDate(label)}</p>
+                    <p style={{ color: '#f1f5f9', fontSize: 15, fontWeight: 700 }}>
+                        {payload[0].value} <span style={{ color: '#64748b', fontWeight: 400, fontSize: 12 }}>{marker.unit}</span>
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+            {/* Card Header */}
+            <div className="px-6 pt-5 pb-2 flex items-start justify-between">
+                <div>
+                    <h3 className="font-bold text-slate-800 text-base">{marker.name}</h3>
+                    <p className="text-slate-400 text-xs mt-0.5">Unidade: {marker.unit || '—'}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                    {lastValue && (
+                        <span className="text-2xl font-bold" style={{ color }}>
+                            {lastValue.value}
+                            <span className="text-sm font-normal text-slate-400 ml-1">{marker.unit}</span>
+                        </span>
+                    )}
+                    <div className="flex items-center gap-1">
+                        <TrendIcon className="w-4 h-4" style={{ color: trendColor }} />
+                        <span className="text-xs font-medium" style={{ color: trendColor }}>
+                            {marker.trend === 'up' ? 'Subindo' : marker.trend === 'down' ? 'Descendo' : 'Estável'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Line Chart */}
+            <div className="px-2 pb-2" style={{ height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={marker.data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                        <XAxis
+                            dataKey="date"
+                            tickFormatter={formatDate}
+                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickMargin={8}
+                        />
+                        <YAxis
+                            tick={{ fontSize: 11, fill: '#94a3b8' }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={45}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke={color}
+                            strokeWidth={2.5}
+                            dot={<CustomDot />}
+                            activeDot={{ r: 7, strokeWidth: 0, fill: color }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Divider */}
+            <div className="mx-6 border-t border-slate-100" />
+
+            {/* Data Table */}
+            <div className="px-6 py-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                    Histórico de Resultados
+                </p>
+                <div className="overflow-hidden rounded-xl border border-slate-100">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-slate-50">
+                                <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide w-1/2">Data</th>
+                                <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide w-1/2">Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {[...marker.data].reverse().map((point, j) => {
+                                const isLast = j === 0;
+                                return (
+                                    <tr key={j} className={`border-t border-slate-100 transition-colors ${isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
+                                        <td className="px-4 py-2.5 text-slate-600 font-medium tabular-nums">{formatDate(point.date)}</td>
+                                        <td className="px-4 py-2.5 text-right font-bold tabular-nums" style={{ color: isLast ? color : '#334155' }}>
+                                            {point.value} <span className="text-slate-400 font-normal text-xs">{marker.unit}</span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }
