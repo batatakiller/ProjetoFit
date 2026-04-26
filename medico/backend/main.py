@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 
 # Load env variables from the root folder (where .env is located)
-load_dotenv(dotenv_path="../.env")
+load_dotenv(dotenv_path="../../.env")
 
 app = FastAPI(title="Medical AI Dashboard API")
 
@@ -26,7 +26,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "http://supabasekong-roockg08kwkoc
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "") # You can parse from .env anon key
 if not SUPABASE_KEY:
     # Try to extract from the raw .env if dotenv didn't parse "anon key : " correctly
-    with open("../.env", "r") as f:
+    with open("../../.env", "r") as f:
         for line in f:
             if "anon key" in line:
                 SUPABASE_KEY = line.split(":", 1)[1].strip()
@@ -36,7 +36,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Initialize Gemini
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 if not GEMINI_API_KEY:
-    with open("../.env", "r") as f:
+    with open("../../.env", "r") as f:
         for line in f:
             if "Gemini API Key" in line:
                 GEMINI_API_KEY = line.split(":", 1)[1].strip()
