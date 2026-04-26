@@ -182,6 +182,24 @@ async def upload_exam(file: UploadFile = File(...)):
         "message": f"Upload processado com sucesso. {len(extraction.biomarkers)} biomarcadores encontrados."
     }
 
+@app.get("/biomarkers")
+def get_biomarkers(patient_id: Optional[str] = None):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+        
+    try:
+        # Se não enviou patient_id, pegar o primeiro (default)
+        if not patient_id:
+            patients_res = supabase.table("patients").select("id").limit(1).execute()
+            if not patients_res.data:
+                return {"data": []}
+            patient_id = patients_res.data[0]["id"]
+            
+        res = supabase.table("biomarkers").select("*").eq("patient_id", patient_id).execute()
+        return {"data": res.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/chat")
 async def chat_with_agent(req: ChatRequest):
     if not ai_client or not supabase:
