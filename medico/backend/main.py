@@ -120,7 +120,7 @@ async def upload_exam(file: UploadFile = File(...)):
     
     try:
         response = ai_client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=[
                 types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
                 prompt
@@ -228,7 +228,7 @@ async def chat_with_agent(req: ChatRequest):
 
         # 4. Generate answer
         response = ai_client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.4
