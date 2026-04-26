@@ -263,7 +263,7 @@ function DashboardView() {
                     else if (catStr.includes('vitam')) cat = 'vitaminas';
                     else if (catStr.includes('hemo')) cat = 'hemograma';
                     
-                    const key = `${cat}_${row.name}`;
+                    const key = row.name;
                     
                     if (!markerMap[key]) {
                         markerMap[key] = {
