@@ -154,13 +154,36 @@ async def upload_exam(file: UploadFile = File(...)):
     - `raw_value`: Valor textual original se não for puramente numérico (ex: "< 0,20", "Negativo", "158.000"). Null se o valor já é numérico simples.
     - `is_abnormal`: true se o laudo marcar explicitamente o resultado como Alto, Baixo, Alterado ou fora da referência (⚠️). false caso contrário.
 
-    🧪 NORMALIZAÇÃO DE NOMES:
-    - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
-    - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Use `name = "HbA1c (%)"` para o resultado percentual e `name = "Glicose Média Estimada"` para a glicose estimada. NUNCA use variantes como "Resultado HBA1C", "HBA1C", "Hemoglobina Glicada Fração A1c".
-    - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
-    - Sempre use "Hormônio Folículo Estimulante - FSH" (use "-" e não "/").
-    - Sempre use "IGF1 / Somatomedina C" (remova variações de espaços).
-    - Mantenha nomes curtos e objetivos.
+    🧪 NORMALIZAÇÃO PADRÃO (TABELA MESTRA/TUSS):
+    Siga RIGOROSAMENTE os nomes abaixo para evitar duplicidade:
+    - "Hemoglobina glicada (Fração A1c)" (Use este para HbA1c)
+    - "Antígeno específico prostático total (PSA)"
+    - "Antígeno específico prostático livre (PSA livre)"
+    - "Dehidrotestosterona (DHT)"
+    - "Somatomedina C (IGF1)"
+    - "Folículo estimulante, hormônio (FSH)"
+    - "Hormônio luteinizante (LH)"
+    - "Testosterona total" e "Testosterona livre"
+    - "Estradiol" e "Prolactina"
+    - "Ferritina" e "Transferrina"
+    - "Ácido fólico" e "Vitamina B12"
+    - "Vitamina D-25 Hidroxi"
+    - "Insulina" e "Glicose"
+    
+    ✅ AGRUPAMENTO DE EXAMES COMPOSTOS:
+    - "PSA Livre / Total": Agrupe "Antígeno específico prostático total (PSA)", "Antígeno específico prostático livre (PSA livre)" e a "Relação" sob este `parent_name`.
+    - "Hemoglobina Glicada (HbA1c)": Agrupe "Hemoglobina glicada (Fração A1c)" e "Glicose Média Estimada" sob este `parent_name`.
+    - "Hemograma": Divida em "Série Vermelha", "Série Branca" e "Plaquetas" conforme regras anteriores.
+    - "Perfil Lipídico": Agrupe "Colesterol Total", "HDL", "LDL", "VLDL" e "Triglicérides" sob este `parent_name`.
+
+    ✅ NUNCA IGNORE — MARCADORES OBRIGATÓRIOS:
+    Estes marcadores são OBRIGATÓRIOS e devem ser sempre extraídos:
+    - HbA1c e Glicose Média
+    - DHT, Estradiol, Testosterona (Total/Livre), Prolactina
+    - PSA (Total/Livre) e Relação
+    - Vitamina C, Vitamina D, Vitamina B12, Ácido Fólico
+    - Ferritina, Ferro Sérico, Transferrina, IST
+    - Todos os sub-itens do Hemograma e Perfil Lipídico
 
     🩸 REGRA ESPECIAL — HEMOGRAMA:
     - Divida obrigatoriamente em dois grupos:
