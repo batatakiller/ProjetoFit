@@ -52,19 +52,31 @@ def health_check():
         "gemini_connected": ai_client is not None
     }
 
+class Biomarker(BaseModel):
+    name: str
+    value: float
+    unit: str
+    category: str
+    collection_date: str # YYYY-MM-DD
+
+class ExamExtraction(BaseModel):
+    summary: str
+    clean_text: str # For RAG
+    biomarkers: List[Biomarker]
+
 @app.post("/upload")
 async def upload_exam(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Apenas arquivos PDF são permitidos.")
     
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
+    if not supabase or not ai_client:
+        raise HTTPException(status_code=500, detail="Supabase ou Gemini não configurados.")
 
-    # 1. Upload to Supabase Storage
     file_bytes = await file.read()
     bucket_name = "patient-exams"
     file_path = f"exams/{file.filename}"
     
+    # 1. Upload to Supabase Storage
     try:
         supabase.storage.from_(bucket_name).upload(
             path=file_path,
@@ -72,31 +84,146 @@ async def upload_exam(file: UploadFile = File(...)):
             file_options={"content-type": "application/pdf"}
         )
     except Exception as e:
-        print(f"Storage Error: {e}")
-        # Try to continue even if upload fails (might already exist)
+        print(f"Storage Error (might already exist): {e}")
     
-    # 2. Get Public URL
     url = supabase.storage.from_(bucket_name).get_public_url(file_path)
     
+    # 2. Get or create a default patient
+    patients_res = supabase.table("patients").select("id").limit(1).execute()
+    if not patients_res.data:
+        new_patient = supabase.table("patients").insert({"name": "Paciente Teste", "email": "teste@exemplo.com"}).execute()
+        patient_id = new_patient.data[0]["id"]
+    else:
+        patient_id = patients_res.data[0]["id"]
+
+    # 3. Use Gemini to extract data
+    prompt = """
+    Você é um assistente médico especialista em análise laboratorial.
+    Analise o laudo em anexo e extraia:
+    1. Um resumo geral das condições do paciente (summary).
+    2. O texto completo do exame de forma limpa, extraindo todos os achados, observações e recomendações, adequado para busca vetorial (clean_text).
+    3. Uma lista de todos os biomarcadores encontrados, contendo o nome, valor numérico exato (apenas o número, como float), unidade de medida, categoria (ex: hormonal, lipidograma, hematologia) e a data da coleta (YYYY-MM-DD). Se não houver data explícita, use a data de emissão.
+    """
+    
+    try:
+        response = ai_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[
+                types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
+                prompt
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ExamExtraction,
+                temperature=0.1
+            ),
+        )
+        extraction: ExamExtraction = response.parsed
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na extração com Gemini: {str(e)}")
+
+    # 4. Save to Database
+    # Insert Exam
+    exam_res = supabase.table("exams").insert({
+        "patient_id": patient_id,
+        "file_path": file_path,
+        "status": "completed",
+        "summary": extraction.summary
+    }).execute()
+    exam_id = exam_res.data[0]["id"]
+
+    # Insert Biomarkers
+    if extraction.biomarkers:
+        biomarkers_data = [
+            {
+                "exam_id": exam_id,
+                "patient_id": patient_id,
+                "name": b.name,
+                "value": b.value,
+                "unit": b.unit,
+                "category": b.category,
+                "collection_date": b.collection_date
+            }
+            for b in extraction.biomarkers
+        ]
+        supabase.table("biomarkers").insert(biomarkers_data).execute()
+
+    # 5. Generate and save Embedding for RAG
+    try:
+        embed_res = ai_client.models.embed_content(
+            model='text-embedding-004',
+            contents=extraction.clean_text
+        )
+        embedding = embed_res.embeddings[0].values
+        
+        supabase.table("exam_embeddings").insert({
+            "exam_id": exam_id,
+            "content": extraction.clean_text,
+            "embedding": embedding,
+            "metadata": {"source": file.filename}
+        }).execute()
+    except Exception as e:
+        print(f"Embedding error: {e}")
+
     return {
         "status": "success",
         "file_url": url,
-        "message": "Upload realizado (Simulado)."
+        "message": f"Upload processado com sucesso. {len(extraction.biomarkers)} biomarcadores encontrados."
     }
 
 @app.post("/chat")
 async def chat_with_agent(req: ChatRequest):
-    if not ai_client:
-        return {"response": "Erro: Gemini API Key não configurada no servidor."}
+    if not ai_client or not supabase:
+        return {"response": "Erro: Gemini API Key ou Supabase não configurados."}
 
     try:
-        response = ai_client.models.generate_content(
-            model="gemini-2.5-flash",
+        # 1. Embed the user's query
+        embed_res = ai_client.models.embed_content(
+            model='text-embedding-004',
             contents=req.message
         )
+        query_embedding = embed_res.embeddings[0].values
+
+        # 2. Search for similar exam context in Supabase
+        # Call the RPC function we created: match_exams
+        match_response = supabase.rpc(
+            'match_exams',
+            {
+                'query_embedding': query_embedding,
+                'match_threshold': 0.5, # adjust as needed
+                'match_count': 3
+            }
+        ).execute()
+
+        context_texts = []
+        if match_response.data:
+            for match in match_response.data:
+                context_texts.append(match.get('content', ''))
+
+        context_block = "\n\n---\n\n".join(context_texts)
+
+        # 3. Build the prompt with context
+        system_prompt = """
+        Você é o assistente virtual do ProjetoFit, especialista em saúde e análises laboratoriais.
+        Use os trechos de laudos médicos fornecidos abaixo como contexto para responder à pergunta do paciente.
+        Se a resposta não estiver no contexto, diga que não tem informações suficientes no laudo atual, 
+        mas você pode dar explicações gerais se for seguro. Sempre recomende que o paciente consulte um médico.
+        """
+
+        full_prompt = f"{system_prompt}\n\nCONTEXTO DOS LAUDOS:\n{context_block}\n\nPERGUNTA DO PACIENTE:\n{req.message}"
+
+        # 4. Generate answer
+        response = ai_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.4
+            )
+        )
         answer = response.text
+
     except Exception as e:
-        answer = f"Error calling Gemini: {e}"
+        answer = f"Error processing chat: {e}"
 
     return {"response": answer}
 
