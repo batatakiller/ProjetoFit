@@ -57,7 +57,11 @@ class Biomarker(BaseModel):
     value: float
     unit: str
     category: str
-    collection_date: str # YYYY-MM-DD
+    collection_date: str             # YYYY-MM-DD
+    parent_name: Optional[str] = None  # Ex: "Hemograma", "Coagulograma"
+    sub_category: Optional[str] = None # Ex: "Série Vermelha", "Série Branca"
+    raw_value: Optional[str] = None    # Valor textual original (ex: "< 0,20")
+    is_abnormal: bool = False          # True se o laudo marcar como fora do normal
 
 class ExamExtraction(BaseModel):
     summary: str
@@ -104,27 +108,46 @@ async def upload_exam(file: UploadFile = File(...)):
             "file_url": url,
             "message": "Este exame já foi processado anteriormente. Duplicidade evitada."
         }
-    # -------------------------------    # 3. Use Gemini to extract data
+    # 3. Use Gemini to extract data
     prompt = """
-    Você é um assistente médico especialista em análise laboratorial com precisão cirúrgica em extração de dados.
-    Analise o laudo PDF em anexo e extraia TODOS os dados disponíveis.
-    
-    1. Um resumo geral das condições do paciente (summary).
-    2. O texto completo do exame de forma limpa, adequado para busca vetorial (clean_text).
-    3. Uma lista EXAUSTIVA de TODOS os biomarcadores encontrados. 
-    
-    ⚠️ REGRAS CRÍTICAS DE DATA:
-    - Verifique a data de cada página e de cada seção. 
-    - Se o arquivo contiver exames de datas diferentes (evolução histórica), você DEVE extrair a data correta para cada medição.
-    - O campo `collection_date` deve ser a data em que o sangue/amostra foi coletado (YYYY-MM-DD).
-    - Não use a data de hoje. Se não houver data, tente inferir do contexto ou use a data de emissão do laudo.
-    
-    Para cada biomarcador:
-       - name: Nome exato (ex: "Ferro Sérico")
-       - value: Valor numérico (float)
-       - unit: Unidade (ex: "µg/dL")
-       - category: hormonal, bioquimica, vitaminas, hemograma ou outros.
-       - collection_date: Data específica daquela medição (YYYY-MM-DD).
+    Você é um Especialista em Extração de Dados Clínicos e Estruturação de Dados para banco de dados.
+
+    Analise o PDF em anexo e retorne:
+    1. `summary`: Resumo clínico geral do paciente.
+    2. `clean_text`: Texto completo limpo do laudo, para busca vetorial.
+    3. `biomarkers`: Lista estruturada dos exames conforme regras abaixo.
+
+    ═══════════════════════════════════════════════
+    REGRAS OBRIGATÓRIAS DE EXTRAÇÃO:
+    ═══════════════════════════════════════════════
+
+    📅 DATA DE COLETA:
+    - Identifique a data principal de coleta do laudo (campo "Data de Coleta" ou equivalente).
+    - Use essa data para TODOS os biomarcadores (formato YYYY-MM-DD).
+    - NÃO use a data de hoje. NÃO invente datas.
+
+    🎯 FOCO NO RESULTADO ATUAL APENAS:
+    - Capture SOMENTE o valor da coluna "Resultado" do exame atual.
+    - IGNORE completamente seções de "Histórico", "Evolução" ou tabelas com datas anteriores.
+    - IGNORE "Valores de Referência", faixas normais e comentários interpretativos.
+    - IGNORE gráficos de evolução.
+
+    🔬 CAMPOS POR BIOMARCADOR:
+    - `name`: Nome exato do exame (ex: "Ferro Sérico", "Hemoglobina").
+    - `value`: Valor numérico do resultado atual (float). Se o valor for textual (ex: "< 0,20"), use 0.0 e preencha `raw_value`.
+    - `unit`: Unidade de medida (ex: "µg/dL", "g/dL").
+    - `category`: Uma das opções: hormonal | bioquimica | vitaminas | hemograma | coagulacao | outros.
+    - `collection_date`: Data de coleta do laudo (YYYY-MM-DD).
+    - `parent_name`: Grupo pai, quando o exame é sub-item (ex: "Hemograma", "Coagulograma", "Colesterol Total e Frações"). Null se for exame independente.
+    - `sub_category`: Sub-grupo dentro do pai (ex: "Série Vermelha", "Série Branca"). Null se não se aplicar.
+    - `raw_value`: Valor textual original se não for puramente numérico (ex: "< 0,20", "Negativo", "158.000"). Null se o valor já é numérico simples.
+    - `is_abnormal`: true se o laudo marcar explicitamente o resultado como Alto, Baixo, Alterado ou fora da referência (⚠️). false caso contrário.
+
+    🩸 REGRA ESPECIAL — HEMOGRAMA:
+    - Divida obrigatoriamente em dois grupos:
+      * Série Vermelha: Eritrócitos, Hemoglobina, Hematócrito, VCM, HCM, CHCM, RDW → `parent_name = "Hemograma"`, `sub_category = "Série Vermelha"`
+      * Série Branca: Leucócitos, Neutrófilos, Segmentados, Bastonetes, Linfócitos, Monócitos, Eosinófilos, Basófilos → `parent_name = "Hemograma"`, `sub_category = "Série Branca"`
+    - Plaquetas e VPM: `parent_name = "Hemograma"`, `sub_category = "Plaquetas"`
     """
     
     try:
@@ -176,7 +199,11 @@ async def upload_exam(file: UploadFile = File(...)):
                     "value": b.value,
                     "unit": b.unit,
                     "category": b.category,
-                    "collection_date": b.collection_date
+                    "collection_date": b.collection_date,
+                    "parent_name": b.parent_name,
+                    "sub_category": b.sub_category,
+                    "raw_value": b.raw_value,
+                    "is_abnormal": b.is_abnormal,
                 })
         
         if new_biomarkers:

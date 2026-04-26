@@ -24,6 +24,10 @@ interface Biomarker {
     data: DataPoint[];
     ref: string;
     trend: string;
+    parentName?: string;
+    subCategory?: string;
+    rawValue?: string;
+    isAbnormal?: boolean;
 }
 
 const MOCK_BIOMARKERS: Record<string, Biomarker[]> = {
@@ -279,6 +283,12 @@ function DashboardView() {
                     const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value);
                     if (!isDuplicate) {
                         markerMap[key].data.push({ date, value });
+
+                    // Update metadata from the most recent entry
+                    markerMap[key].parentName = row.parent_name || undefined;
+                    markerMap[key].subCategory = row.sub_category || undefined;
+                    markerMap[key].rawValue = row.raw_value || undefined;
+                    markerMap[key].isAbnormal = row.is_abnormal || false;
                     }
                 });
 
@@ -413,23 +423,35 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
             {/* Card Header */}
             <div className="px-6 pt-5 pb-2 flex items-start justify-between">
-                <div>
+                <div className="flex-1 min-w-0">
+                    {marker.subCategory && (
+                        <span className="text-xs font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full mb-1 inline-block" 
+                            style={{ backgroundColor: `${color}18`, color }}>
+                            {marker.subCategory}
+                        </span>
+                    )}
                     <h3 className="font-bold text-slate-800 text-base">{marker.name}</h3>
                     <p className="text-slate-400 text-xs mt-0.5">Unidade: {marker.unit || '—'}</p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-col items-end gap-1 ml-4">
                     {lastValue && (
                         <span className="text-2xl font-bold" style={{ color }}>
-                            {lastValue.value}
+                            {marker.rawValue && lastValue.value === 0 ? marker.rawValue : lastValue.value}
                             <span className="text-sm font-normal text-slate-400 ml-1">{marker.unit}</span>
                         </span>
                     )}
-                    <div className="flex items-center gap-1">
-                        <TrendIcon className="w-4 h-4" style={{ color: trendColor }} />
-                        <span className="text-xs font-medium" style={{ color: trendColor }}>
-                            {marker.trend === 'up' ? 'Subindo' : marker.trend === 'down' ? 'Descendo' : 'Estável'}
+                    {marker.isAbnormal ? (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                            <AlertTriangle className="w-3 h-3" /> Anormal
                         </span>
-                    </div>
+                    ) : (
+                        <div className="flex items-center gap-1">
+                            <TrendIcon className="w-4 h-4" style={{ color: trendColor }} />
+                            <span className="text-xs font-medium" style={{ color: trendColor }}>
+                                {marker.trend === 'up' ? 'Subindo' : marker.trend === 'down' ? 'Descendo' : 'Estável'}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -484,11 +506,16 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                         <tbody>
                             {[...marker.data].reverse().map((point, j) => {
                                 const isLast = j === 0;
+                                const displayVal = (point.value === 0 && marker.rawValue) 
+                                    ? marker.rawValue 
+                                    : point.value;
                                 return (
-                                    <tr key={j} className={`border-t border-slate-100 transition-colors ${isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
+                                    <tr key={j} className={`border-t border-slate-100 transition-colors ${isLast && marker.isAbnormal ? 'bg-red-50' : isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
                                         <td className="px-4 py-2.5 text-slate-600 font-medium tabular-nums">{formatDate(point.date)}</td>
-                                        <td className="px-4 py-2.5 text-right font-bold tabular-nums" style={{ color: isLast ? color : '#334155' }}>
-                                            {point.value} <span className="text-slate-400 font-normal text-xs">{marker.unit}</span>
+                                        <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${isLast && marker.isAbnormal ? 'text-red-600' : ''}`} 
+                                            style={{ color: isLast && !marker.isAbnormal ? color : undefined }}>
+                                            {displayVal} <span className="text-slate-400 font-normal text-xs">{marker.unit}</span>
+                                            {isLast && marker.isAbnormal && <AlertTriangle className="w-3 h-3 ml-1 inline text-red-500" />}
                                         </td>
                                     </tr>
                                 );
