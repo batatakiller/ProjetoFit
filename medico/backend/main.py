@@ -120,7 +120,7 @@ async def upload_exam(file: UploadFile = File(...)):
     
     try:
         response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=[
                 types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
                 prompt
@@ -133,6 +133,7 @@ async def upload_exam(file: UploadFile = File(...)):
         )
         extraction: ExamExtraction = response.parsed
     except Exception as e:
+        print(f"Gemini Extraction Error: {e}")
         raise HTTPException(status_code=500, detail=f"Erro na extração com Gemini: {str(e)}")
 
     # 4. Save to Database
@@ -227,7 +228,7 @@ async def chat_with_agent(req: ChatRequest):
 
         # 4. Generate answer
         response = ai_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.4
