@@ -272,10 +272,14 @@ function DashboardView() {
                         grouped[cat].push(markerMap[key]);
                     }
                     
-                    markerMap[key].data.push({
-                        date: row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-                        value: row.value
-                    });
+                    const date = row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
+                    const value = row.value;
+
+                    // Deduplicar: não adicionar se já existir exatamente a mesma data e valor
+                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value);
+                    if (!isDuplicate) {
+                        markerMap[key].data.push({ date, value });
+                    }
                 });
 
                 // Sort dates and calculate trends

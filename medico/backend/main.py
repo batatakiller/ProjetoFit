@@ -104,28 +104,32 @@ async def upload_exam(file: UploadFile = File(...)):
             "file_url": url,
             "message": "Este exame já foi processado anteriormente. Duplicidade evitada."
         }
-    # ----------------------------------
-
-    # 3. Use Gemini to extract data
+    # -------------------------------    # 3. Use Gemini to extract data
     prompt = """
-    Você é um assistente médico especialista em análise laboratorial e processamento de dados com extrema atenção aos detalhes.
+    Você é um assistente médico especialista em análise laboratorial com precisão cirúrgica em extração de dados.
     Analise o laudo PDF em anexo e extraia TODOS os dados disponíveis.
     
     1. Um resumo geral das condições do paciente (summary).
     2. O texto completo do exame de forma limpa, adequado para busca vetorial (clean_text).
-    3. Uma lista EXAUSTIVA de TODOS os biomarcadores encontrados no laudo. NÃO OMITA NENHUM ITEM.
-       ATENÇÃO: Extraia todos os hormônios (ex: Cortisol Manhã/Tarde, Testosterona, etc), lipidograma, hemograma completo, vitaminas, minerais, função renal e hepática. Leia linha por linha.
-       Para cada biomarcador, forneça:
-       - name: O nome exato do exame (ex: "Cortisol Manhã")
-       - value: O valor numérico exato extraído do laudo (float)
-       - unit: A unidade de medida
+    3. Uma lista EXAUSTIVA de TODOS os biomarcadores encontrados. 
+    
+    ⚠️ REGRAS CRÍTICAS DE DATA:
+    - Verifique a data de cada página e de cada seção. 
+    - Se o arquivo contiver exames de datas diferentes (evolução histórica), você DEVE extrair a data correta para cada medição.
+    - O campo `collection_date` deve ser a data em que o sangue/amostra foi coletado (YYYY-MM-DD).
+    - Não use a data de hoje. Se não houver data, tente inferir do contexto ou use a data de emissão do laudo.
+    
+    Para cada biomarcador:
+       - name: Nome exato (ex: "Ferro Sérico")
+       - value: Valor numérico (float)
+       - unit: Unidade (ex: "µg/dL")
        - category: hormonal, bioquimica, vitaminas, hemograma ou outros.
-       - collection_date: A data EXATA de coleta daquele exame específico (YYYY-MM-DD). Se não houver data de coleta, procure a data do laudo. Se os laudos no arquivo tiverem datas diferentes (exames evolutivos), garanta que cada biomarcador tenha a sua data correspondente. É CRÍTICO PARA O HISTÓRICO QUE A DATA SEJA PRECISA.
+       - collection_date: Data específica daquela medição (YYYY-MM-DD).
     """
     
     try:
         response = ai_client.models.generate_content(
-            model='models/gemini-3.1-pro-preview',
+            model='gemini-2.0-flash',
             contents=[
                 types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
                 prompt
@@ -151,21 +155,32 @@ async def upload_exam(file: UploadFile = File(...)):
     }).execute()
     exam_id = exam_res.data[0]["id"]
 
-    # Insert Biomarkers
+    # Insert Biomarkers with Deduplication Check
     if extraction.biomarkers:
-        biomarkers_data = [
-            {
-                "exam_id": exam_id,
+        new_biomarkers = []
+        for b in extraction.biomarkers:
+            # Verificar se já existe um biomarcador idêntico para este paciente
+            existing = supabase.table("biomarkers").select("id").match({
                 "patient_id": patient_id,
                 "name": b.name,
                 "value": b.value,
                 "unit": b.unit,
-                "category": b.category,
                 "collection_date": b.collection_date
-            }
-            for b in extraction.biomarkers
-        ]
-        supabase.table("biomarkers").insert(biomarkers_data).execute()
+            }).execute()
+            
+            if not existing.data:
+                new_biomarkers.append({
+                    "exam_id": exam_id,
+                    "patient_id": patient_id,
+                    "name": b.name,
+                    "value": b.value,
+                    "unit": b.unit,
+                    "category": b.category,
+                    "collection_date": b.collection_date
+                })
+        
+        if new_biomarkers:
+            supabase.table("biomarkers").insert(new_biomarkers).execute()
 
     # 5. Generate and save Embedding for RAG
     try:
