@@ -232,19 +232,95 @@ function UploadView() {
 }
 
 function DashboardView() {
-    const [activeCategory, setActiveCategory] = useState<keyof typeof CATEGORIES>('hormonal');
-    const currentData = MOCK_BIOMARKERS[activeCategory] || [];
-    const catInfo = CATEGORIES[activeCategory];
+    const [activeCategory, setActiveCategory] = useState<keyof typeof CATEGORIES | 'outros'>('hormonal');
+    const [realData, setRealData] = useState<Record<string, Biomarker[]>>({
+        hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], outros: []
+    });
+    const [loading, setLoading] = useState(true);
+
+    React.useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const res = await axios.get(`${apiUrl}/biomarkers`);
+                
+                const rawData = res.data.data || [];
+                const grouped: Record<string, Biomarker[]> = {
+                    hormonal: [], bioquimica: [], vitaminas: [], hemograma: [], outros: []
+                };
+
+                const markerMap: Record<string, Biomarker> = {};
+
+                rawData.forEach((row: any) => {
+                    const catStr = row.category ? row.category.toLowerCase() : 'outros';
+                    // Find matching standard category or use 'outros'
+                    let cat = 'outros';
+                    if (catStr.includes('hormon')) cat = 'hormonal';
+                    else if (catStr.includes('bioquim') || catStr.includes('lipid')) cat = 'bioquimica';
+                    else if (catStr.includes('vitam')) cat = 'vitaminas';
+                    else if (catStr.includes('hemo')) cat = 'hemograma';
+                    
+                    const key = `${cat}_${row.name}`;
+                    
+                    if (!markerMap[key]) {
+                        markerMap[key] = {
+                            name: row.name,
+                            unit: row.unit || '',
+                            data: [],
+                            ref: '-',
+                            trend: 'stable'
+                        };
+                        grouped[cat].push(markerMap[key]);
+                    }
+                    
+                    markerMap[key].data.push({
+                        date: row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+                        value: row.value
+                    });
+                });
+
+                // Sort dates and calculate trends
+                Object.values(markerMap).forEach(m => {
+                    m.data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    if (m.data.length > 1) {
+                        const last = m.data[m.data.length - 1].value;
+                        const prev = m.data[m.data.length - 2].value;
+                        if (last > prev) m.trend = 'up';
+                        else if (last < prev) m.trend = 'down';
+                    }
+                });
+
+                setRealData(grouped);
+            } catch (e) {
+                console.error("Erro ao buscar biomarcadores", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const currentData = realData[activeCategory] || [];
+    
+    // Fallback if category info doesn't exist
+    const catInfo = CATEGORIES[activeCategory as keyof typeof CATEGORIES] || { label: 'Outros', color: '#64748b', icon: Activity };
+
+    if (loading) {
+        return <div className="p-8 text-center text-slate-500 animate-pulse">Carregando seus gráficos...</div>;
+    }
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 pb-24">
-            <h2 className="text-2xl font-bold">Histórico Geral</h2>
-            <div className="flex gap-2">
-                {(Object.keys(CATEGORIES) as Array<keyof typeof CATEGORIES>).map(k => {
-                    const info = CATEGORIES[k];
+            <h2 className="text-2xl font-bold">Histórico Geral (Dados Reais)</h2>
+            <div className="flex flex-wrap gap-2">
+                {[...Object.keys(CATEGORIES), 'outros'].map((k) => {
+                    const info = CATEGORIES[k as keyof typeof CATEGORIES] || { label: 'Outros', color: '#64748b', icon: Activity };
                     const Icon = info.icon;
+                    // Only show tabs that have data, except for the primary ones if empty
+                    if (k === 'outros' && (!realData.outros || realData.outros.length === 0)) return null;
+                    
                     return (
-                        <button key={k} onClick={() => setActiveCategory(k)}
+                        <button key={k} onClick={() => setActiveCategory(k as any)}
                             className={`flex gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
                                 activeCategory === k ? 'text-white' : 'bg-white text-slate-600'
                             }`}
@@ -255,24 +331,40 @@ function DashboardView() {
                 })}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {currentData.map((marker: Biomarker, i: number) => (
-                    <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 className="font-bold text-sm mb-4">{marker.name} ({marker.unit})</h3>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={marker.data}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="date" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Area type="monotone" dataKey="value" stroke={catInfo.color} fill={catInfo.color} fillOpacity={0.1} />
-                                </AreaChart>
-                            </ResponsiveContainer>
+            {currentData.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                    Nenhum biomarcador desta categoria encontrado nos exames importados.
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {currentData.map((marker: Biomarker, i: number) => (
+                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-sm mb-4 text-slate-700">{marker.name} <span className="text-slate-400 font-normal">({marker.unit})</span></h3>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={marker.data}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="date" tick={{fontSize: 12}} tickMargin={10} />
+                                        <YAxis tick={{fontSize: 12}} />
+                                        <Tooltip 
+                                            contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="value" 
+                                            stroke={catInfo.color} 
+                                            strokeWidth={3}
+                                            fill={catInfo.color} 
+                                            fillOpacity={0.15} 
+                                            activeDot={{r: 6, strokeWidth: 0}}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
