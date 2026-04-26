@@ -154,7 +154,7 @@ async def upload_exam(file: UploadFile = File(...)):
 
     🧪 NORMALIZAÇÃO DE NOMES:
     - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
-    - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Extraia tanto o "Resultado HBA1C" quanto a "Glicose Média Estimada" como itens filhos.
+    - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Use `name = "HbA1c (%)"` para o resultado percentual e `name = "Glicose Média Estimada"` para a glicose estimada. NUNCA use variantes como "Resultado HBA1C", "HBA1C", "Hemoglobina Glicada Fração A1c".
     - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
     - Mantenha nomes curtos e objetivos.
 
