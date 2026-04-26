@@ -125,7 +125,7 @@ async def upload_exam(file: UploadFile = File(...)):
     
     try:
         response = ai_client.models.generate_content(
-            model='models/gemini-2.5-pro',
+            model='models/gemini-3.1-pro-preview',
             contents=[
                 types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
                 prompt
