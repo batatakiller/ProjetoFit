@@ -134,7 +134,7 @@ async def upload_exam(file: UploadFile = File(...)):
 
     🔬 CAMPOS POR BIOMARCADOR:
     - `name`: Nome exato do exame (ex: "Ferro Sérico", "Hemoglobina").
-    - `value`: Valor numérico do resultado atual (float). Se o valor for textual (ex: "< 0,20"), use 0.0 e preencha `raw_value`.
+    - `value`: Valor numérico do resultado atual (float). Extraia apenas os números, mesmo que o laudo contenha prefixos como "<", ">", "Superior a" ou "Inferior a". (Ex: "Superior a 24,80" vira 24.80). Se for puramente textual sem números (ex: "Negativo"), use 0.0.
     - `unit`: Unidade de medida (ex: "µg/dL", "g/dL").
     - `category`: Uma das opções: hormonal | bioquimica | vitaminas | hemograma | coagulacao | outros.
     - `collection_date`: Data de coleta do laudo (YYYY-MM-DD).
