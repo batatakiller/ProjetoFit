@@ -108,16 +108,24 @@ async def upload_exam(file: UploadFile = File(...)):
 
     # 3. Use Gemini to extract data
     prompt = """
-    Você é um assistente médico especialista em análise laboratorial.
-    Analise o laudo em anexo e extraia:
+    Você é um assistente médico especialista em análise laboratorial e processamento de dados com extrema atenção aos detalhes.
+    Analise o laudo PDF em anexo e extraia TODOS os dados disponíveis.
+    
     1. Um resumo geral das condições do paciente (summary).
-    2. O texto completo do exame de forma limpa, extraindo todos os achados, observações e recomendações, adequado para busca vetorial (clean_text).
-    3. Uma lista de todos os biomarcadores encontrados, contendo o nome, valor numérico exato (apenas o número, como float), unidade de medida, categoria (ex: hormonal, lipidograma, hematologia) e a data da coleta (YYYY-MM-DD). Se não houver data explícita, use a data de emissão.
+    2. O texto completo do exame de forma limpa, adequado para busca vetorial (clean_text).
+    3. Uma lista EXAUSTIVA de TODOS os biomarcadores encontrados no laudo. NÃO OMITA NENHUM ITEM.
+       ATENÇÃO: Extraia todos os hormônios (ex: Cortisol Manhã/Tarde, Testosterona, etc), lipidograma, hemograma completo, vitaminas, minerais, função renal e hepática. Leia linha por linha.
+       Para cada biomarcador, forneça:
+       - name: O nome exato do exame (ex: "Cortisol Manhã")
+       - value: O valor numérico exato extraído do laudo (float)
+       - unit: A unidade de medida
+       - category: hormonal, bioquimica, vitaminas, hemograma ou outros.
+       - collection_date: A data EXATA de coleta daquele exame específico (YYYY-MM-DD). Se não houver data de coleta, procure a data do laudo. Se os laudos no arquivo tiverem datas diferentes (exames evolutivos), garanta que cada biomarcador tenha a sua data correspondente. É CRÍTICO PARA O HISTÓRICO QUE A DATA SEJA PRECISA.
     """
     
     try:
         response = ai_client.models.generate_content(
-            model='gemini-flash-latest',
+            model='models/gemini-2.5-pro',
             contents=[
                 types.Part.from_bytes(data=file_bytes, mime_type='application/pdf'),
                 prompt
