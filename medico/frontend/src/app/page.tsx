@@ -589,26 +589,28 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                             ).map(([date, points], idx) => {
                                 const isLast = idx === 0;
                                 return (
-                                    <React.Fragment key={date}>
-                                        <tr className={`border-t border-slate-100 transition-colors ${isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
-                                            <td rowSpan={points.length} className="px-4 py-2.5 text-slate-600 font-medium tabular-nums align-top border-r border-slate-100">
-                                                {formatDate(date)}
-                                            </td>
-                                            <td className={`px-4 py-2.5 text-right font-bold tabular-nums`}>
-                                                <div className="flex flex-col items-end">
-                                                    {points.map((p, pIdx) => (
-                                                        <div key={pIdx} className="flex items-center gap-2">
-                                                            {p.subName && <span className="text-[10px] font-normal text-slate-400">{p.subName}:</span>}
-                                                            <span style={{ color: isLast && !marker.isAbnormal ? color : (marker.isAbnormal ? '#dc2626' : '#334155') }}>
-                                                                {p.value === 0 && marker.rawValue ? marker.rawValue : p.value}
-                                                                <span className="text-[10px] font-normal text-slate-400 ml-1">{p.unit || marker.unit}</span>
+                                    <tr key={date} className={`border-t border-slate-100 transition-colors ${isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
+                                        <td className="px-4 py-3 text-slate-600 font-medium tabular-nums align-top border-r border-slate-100">
+                                            {formatDate(date)}
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-bold tabular-nums align-top">
+                                            <div className="flex flex-col gap-1.5 w-full">
+                                                {points.map((p, pIdx) => (
+                                                    <div key={pIdx} className="flex justify-end items-center gap-3">
+                                                        {p.subName && (
+                                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 text-right flex-1 truncate">
+                                                                {p.subName.replace(/\(.*?\)/g, '').trim()}
                                                             </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </React.Fragment>
+                                                        )}
+                                                        <span className="whitespace-nowrap min-w-[70px] text-right" style={{ color: isLast && !marker.isAbnormal ? color : (marker.isAbnormal ? '#dc2626' : '#334155') }}>
+                                                            <span className="text-sm">{p.value === 0 && marker.rawValue ? marker.rawValue : p.value}</span>
+                                                            <span className="text-[10px] font-normal text-slate-400 ml-1.5">{p.unit || marker.unit}</span>
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </td>
+                                    </tr>
                                 );
                             })}
                         </tbody>
