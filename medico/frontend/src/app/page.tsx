@@ -16,6 +16,8 @@ import axios from 'axios';
 interface DataPoint {
     date: string;
     value: number;
+    subName?: string;
+    unit?: string;
 }
 
 interface Biomarker {
@@ -263,15 +265,16 @@ function DashboardView() {
                     else if (catStr.includes('vitam')) cat = 'vitaminas';
                     else if (catStr.includes('hemo')) cat = 'hemograma';
                     
-                    const key = row.name;
+                    const key = row.parent_name || row.name;
                     
                     if (!markerMap[key]) {
                         markerMap[key] = {
-                            name: row.name,
-                            unit: row.unit || '',
+                            name: key,
+                            unit: row.parent_name ? '' : (row.unit || ''),
                             data: [],
                             ref: row.reference_range || '-',
-                            trend: 'stable'
+                            trend: 'stable',
+                            parentName: row.parent_name || undefined
                         };
                         grouped[cat].push(markerMap[key]);
                     }
@@ -279,16 +282,20 @@ function DashboardView() {
                     const date = row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
                     const value = row.value;
 
-                    // Deduplicar: não adicionar se já existir exatamente a mesma data e valor
-                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value);
+                    // Deduplicar: não adicionar se já existir exatamente a mesma data e valor para este sub-item
+                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value && p.subName === row.name);
                     if (!isDuplicate) {
-                        markerMap[key].data.push({ date, value });
+                        markerMap[key].data.push({ 
+                            date, 
+                            value, 
+                            subName: row.parent_name ? row.name : undefined,
+                            unit: row.unit
+                        });
 
                     // Update metadata from the most recent entry
-                    markerMap[key].parentName = row.parent_name || undefined;
-                    markerMap[key].subCategory = row.sub_category || undefined;
-                    markerMap[key].rawValue = row.raw_value || undefined;
-                    markerMap[key].isAbnormal = row.is_abnormal || false;
+                    if (!markerMap[key].subCategory) markerMap[key].subCategory = row.sub_category || undefined;
+                    if (!markerMap[key].rawValue) markerMap[key].rawValue = row.raw_value || undefined;
+                    if (!markerMap[key].isAbnormal) markerMap[key].isAbnormal = row.is_abnormal || false;
                     }
                 });
 
@@ -504,20 +511,36 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                             </tr>
                         </thead>
                         <tbody>
-                            {[...marker.data].reverse().map((point, j) => {
-                                const isLast = j === 0;
-                                const displayVal = (point.value === 0 && marker.rawValue) 
-                                    ? marker.rawValue 
-                                    : point.value;
+                             {/* Group data by date for table */}
+                            {Object.entries(
+                                [...marker.data].reverse().reduce((acc: Record<string, DataPoint[]>, curr) => {
+                                    if (!acc[curr.date]) acc[curr.date] = [];
+                                    acc[curr.date].push(curr);
+                                    return acc;
+                                }, {})
+                            ).map(([date, points], idx) => {
+                                const isLast = idx === 0;
                                 return (
-                                    <tr key={j} className={`border-t border-slate-100 transition-colors ${isLast && marker.isAbnormal ? 'bg-red-50' : isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
-                                        <td className="px-4 py-2.5 text-slate-600 font-medium tabular-nums">{formatDate(point.date)}</td>
-                                        <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${isLast && marker.isAbnormal ? 'text-red-600' : ''}`} 
-                                            style={{ color: isLast && !marker.isAbnormal ? color : undefined }}>
-                                            {displayVal} <span className="text-slate-400 font-normal text-xs">{marker.unit}</span>
-                                            {isLast && marker.isAbnormal && <AlertTriangle className="w-3 h-3 ml-1 inline text-red-500" />}
-                                        </td>
-                                    </tr>
+                                    <React.Fragment key={date}>
+                                        <tr className={`border-t border-slate-100 transition-colors ${isLast ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}>
+                                            <td rowSpan={points.length} className="px-4 py-2.5 text-slate-600 font-medium tabular-nums align-top border-r border-slate-100">
+                                                {formatDate(date)}
+                                            </td>
+                                            <td className={`px-4 py-2.5 text-right font-bold tabular-nums`}>
+                                                <div className="flex flex-col items-end">
+                                                    {points.map((p, pIdx) => (
+                                                        <div key={pIdx} className="flex items-center gap-2">
+                                                            {p.subName && <span className="text-[10px] font-normal text-slate-400">{p.subName}:</span>}
+                                                            <span style={{ color: isLast && !marker.isAbnormal ? color : (marker.isAbnormal ? '#dc2626' : '#334155') }}>
+                                                                {p.value === 0 && marker.rawValue ? marker.rawValue : p.value}
+                                                                <span className="text-[10px] font-normal text-slate-400 ml-1">{p.unit || marker.unit}</span>
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </React.Fragment>
                                 );
                             })}
                         </tbody>
