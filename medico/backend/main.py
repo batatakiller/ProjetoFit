@@ -137,7 +137,7 @@ async def upload_exam(file: UploadFile = File(...)):
     - "Resultado HBA1C" e "Glicose Média Estimada" (sub-itens de Hemoglobina Glicada)
     - "DHT - Dihidrotestosterona"
     - "Estradiol"
-    - "PSA Total", "PSA Livre" e "Relação PSA Livre/Total"
+    - "PSA Total", "PSA Livre" e "Relação PSA Livre/Total" → sempre com `parent_name = "PSA Livre / Total"`
     - "Vitamina C"
     - "Índice de Saturação da Transferrina"
     - "Ácido Fólico"
