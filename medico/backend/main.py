@@ -145,6 +145,7 @@ async def upload_exam(file: UploadFile = File(...)):
 
     🧪 NORMALIZAÇÃO DE NOMES:
     - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
+    - Sempre use "Hemoglobina Glicada (HbA1c)" para frações A1c.
     - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
     - Mantenha nomes curtos e objetivos.
 
