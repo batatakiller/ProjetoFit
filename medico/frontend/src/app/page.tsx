@@ -142,10 +142,13 @@ function UploadView() {
                 
                 clearInterval(interval);
                 setProgress(100);
-                setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Sucesso! ' + res.data.message }]);
+                const isWarning = res.data.status === 'warning';
+                setLogs(prev => [...prev, { 
+                    time: new Date().toLocaleTimeString(), 
+                    msg: (isWarning ? '⚠️ ' : '✅ ') + res.data.message 
+                }]);
                 
                 setProcessing(false);
-                // Reset progress after a short moment for visual feedback
                 setTimeout(() => setProgress(0), 1000);
             } catch (err) {
                 clearInterval(interval);
