@@ -143,6 +143,11 @@ async def upload_exam(file: UploadFile = File(...)):
     - `raw_value`: Valor textual original se não for puramente numérico (ex: "< 0,20", "Negativo", "158.000"). Null se o valor já é numérico simples.
     - `is_abnormal`: true se o laudo marcar explicitamente o resultado como Alto, Baixo, Alterado ou fora da referência (⚠️). false caso contrário.
 
+    🧪 NORMALIZAÇÃO DE NOMES:
+    - Sempre use "Índice de Saturação da Transferrina" (remova "(IST)").
+    - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
+    - Mantenha nomes curtos e objetivos.
+
     🩸 REGRA ESPECIAL — HEMOGRAMA:
     - Divida obrigatoriamente em dois grupos:
       * Série Vermelha: Eritrócitos, Hemoglobina, Hematócrito, VCM, HCM, CHCM, RDW → `parent_name = "Hemograma"`, `sub_category = "Série Vermelha"`
