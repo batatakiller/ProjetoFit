@@ -144,10 +144,9 @@ function UploadView() {
                 setProgress(100);
                 setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: 'Sucesso! ' + res.data.message }]);
                 
-                setTimeout(() => {
-                    setProcessing(false);
-                    setProgress(0);
-                }, 3000);
+                setProcessing(false);
+                // Reset progress after a short moment for visual feedback
+                setTimeout(() => setProgress(0), 1000);
             } catch (err) {
                 clearInterval(interval);
                 console.error(err);

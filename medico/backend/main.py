@@ -151,7 +151,7 @@ async def upload_exam(file: UploadFile = File(...)):
     # 5. Generate and save Embedding for RAG
     try:
         embed_res = ai_client.models.embed_content(
-            model='text-embedding-004',
+            model='models/text-embedding-004',
             contents=extraction.clean_text
         )
         embedding = embed_res.embeddings[0].values
