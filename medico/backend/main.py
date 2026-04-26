@@ -62,6 +62,9 @@ class Biomarker(BaseModel):
     sub_category: Optional[str] = None # Ex: "Série Vermelha", "Série Branca"
     raw_value: Optional[str] = None    # Valor textual original (ex: "< 0,20")
     is_abnormal: bool = False          # True se o laudo marcar como fora do normal
+    tuss_code: Optional[str] = None
+    sip_group: Optional[str] = None
+    observations: Optional[str] = None
 
 class ExamExtraction(BaseModel):
     summary: str
@@ -224,6 +227,39 @@ async def upload_exam(file: UploadFile = File(...)):
     if extraction.biomarkers:
         new_biomarkers = []
         for b in extraction.biomarkers:
+            # --- NORMALIZAÇÃO VETORIAL (TUSS) ---
+            try:
+                # 1. Gerar embedding do nome extraído
+                emb_res = ai_client.models.embed_content(
+                    model='models/gemini-embedding-001',
+                    contents=[b.name]
+                )
+                query_vector = emb_res.embeddings[0].values
+                
+                # 2. Buscar no catálogo via RPC (Similaridade Vetorial)
+                catalog_match = supabase.rpc("match_exams", {
+                    "query_embedding": query_vector,
+                    "match_threshold": 0.8, # 80% de similaridade
+                    "match_count": 1
+                }).execute()
+                
+                if catalog_match.data:
+                    match = catalog_match.data[0]
+                    b.name = match["name"] # Substituir pelo nome oficial da Tabela Mestra
+                    b.tuss_code = match["tuss_code"]
+                    b.sip_group = match["sip_group"]
+                    b.observations = match["observations"]
+            except Exception as e:
+                print(f"Erro na busca vetorial para {b.name}: {e}")
+                # Fallback: tentar busca por texto exato se o vetor falhar
+                catalog_match = supabase.table("exam_catalog").select("*").ilike("name", b.name).execute()
+                if catalog_match.data:
+                    match = catalog_match.data[0]
+                    b.name = match["name"]
+                    b.tuss_code = match["tuss_code"]
+                    b.sip_group = match["sip_group"]
+                    b.observations = match["observations"]
+
             # Verificar se já existe um biomarcador idêntico para este paciente
             existing = supabase.table("biomarkers").select("id").match({
                 "patient_id": patient_id,
@@ -246,6 +282,9 @@ async def upload_exam(file: UploadFile = File(...)):
                     "sub_category": b.sub_category,
                     "raw_value": b.raw_value,
                     "is_abnormal": b.is_abnormal,
+                    "tuss_code": b.tuss_code,
+                    "sip_group": b.sip_group,
+                    "observations": b.observations,
                 })
         
         if new_biomarkers:

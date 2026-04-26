@@ -57,7 +57,8 @@ const CATEGORIES = {
     hormonal: { label: 'Hormonal', color: '#0d9488', icon: Activity },
     bioquimica: { label: 'Bioquímica', color: '#3b82f6', icon: FlaskConical },
     vitaminas: { label: 'Vitaminas', color: '#f59e0b', icon: Sun },
-    hemograma: { label: 'Hemograma', color: '#ef4444', icon: Droplets }
+    hemograma: { label: 'Hemograma', color: '#ef4444', icon: Droplets },
+    coagulacao: { label: 'Coagulação', color: '#8b5cf6', icon: Activity }
 };
 
 export default function App() {
@@ -261,9 +262,10 @@ function DashboardView() {
                     const catStr = row.category ? row.category.toLowerCase() : 'outros';
                     let cat = 'outros';
                     if (catStr.includes('hormon')) cat = 'hormonal';
-                    else if (catStr.includes('bioquim') || catStr.includes('lipid')) cat = 'bioquimica';
+                    else if (catStr.includes('bioquim') || catStr.includes('lipid') || catStr.includes('pancre')) cat = 'bioquimica';
                     else if (catStr.includes('vitam')) cat = 'vitaminas';
                     else if (catStr.includes('hemo')) cat = 'hemograma';
+                    else if (catStr.includes('coagul') || catStr.includes('trombo') || catStr.includes('protromb')) cat = 'coagulacao';
                     
                     const key = row.parent_name || row.name;
                     
@@ -441,12 +443,26 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                     <p className="text-slate-400 text-xs mt-0.5">Unidade: {marker.unit || '—'}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 ml-4">
-                    {lastValue && (
-                        <span className="text-2xl font-bold" style={{ color }}>
-                            {marker.rawValue && lastValue.value === 0 ? marker.rawValue : lastValue.value}
-                            <span className="text-sm font-normal text-slate-400 ml-1">{marker.unit}</span>
-                        </span>
-                    )}
+                    {(() => {
+                        const subGroups: { [key: string]: DataPoint } = {};
+                        marker.data.forEach(d => {
+                            const key = d.subName || marker.name;
+                            if (!subGroups[key] || new Date(d.date) > new Date(subGroups[key].date)) {
+                                subGroups[key] = d;
+                            }
+                        });
+
+                        const keys = Object.keys(subGroups);
+                        return keys.map(key => (
+                            <div key={key} className="flex items-center gap-1">
+                                {keys.length > 1 && <span className="text-[10px] text-slate-400 uppercase font-bold">{key}:</span>}
+                                <span className={keys.length > 1 ? "text-lg font-bold" : "text-2xl font-bold"} style={{ color }}>
+                                    {subGroups[key].value}
+                                    <span className="text-xs font-normal text-slate-400 ml-1">{subGroups[key].unit || marker.unit}</span>
+                                </span>
+                            </div>
+                        ));
+                    })()}
                     {marker.isAbnormal ? (
                         <span className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
                             <AlertTriangle className="w-3 h-3" /> Anormal
@@ -462,36 +478,82 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                 </div>
             </div>
 
-            {/* Line Chart */}
-            <div className="px-2 pb-2" style={{ height: 200 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={marker.data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
-                        <XAxis
-                            dataKey="date"
-                            tickFormatter={formatDate}
-                            tick={{ fontSize: 11, fill: '#94a3b8' }}
-                            axisLine={false}
-                            tickLine={false}
-                            tickMargin={8}
-                        />
-                        <YAxis
-                            tick={{ fontSize: 11, fill: '#94a3b8' }}
-                            axisLine={false}
-                            tickLine={false}
-                            width={45}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Line
-                            type="monotone"
-                            dataKey="value"
-                            stroke={color}
-                            strokeWidth={2.5}
-                            dot={<CustomDot />}
-                            activeDot={{ r: 7, strokeWidth: 0, fill: color }}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
+            {/* Line Charts — one per sub-item */}
+            <div className="px-2 pb-2 space-y-2">
+                {(() => {
+                    // Agrupar por subName; se não houver subName, um único grupo com o nome do card
+                    const groups: { [key: string]: DataPoint[] } = {};
+                    marker.data.forEach(d => {
+                        const key = d.subName || marker.name;
+                        if (!groups[key]) groups[key] = [];
+                        groups[key].push(d);
+                    });
+
+                    // Ordenar pontos dentro de cada grupo por data
+                    Object.values(groups).forEach(pts =>
+                        pts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    );
+
+                    const groupKeys = Object.keys(groups);
+                    const isMulti = groupKeys.length > 1;
+                    const chartH = isMulti ? (groupKeys.length >= 3 ? 100 : 120) : 180;
+
+                    // Label curta: pegar só o trecho antes de parêntesis ou após o último ' - '
+                    const shortLabel = (k: string) => {
+                        const s = k.replace(/\(.*?\)/g, '').trim(); // remove parêntesis
+                        const parts = s.split(' - ');
+                        return parts[parts.length - 1].trim();
+                    };
+
+                    return groupKeys.map((key, index) => (
+                        <div key={key} className="space-y-0">
+                            {isMulti && (
+                                <div className="flex items-center gap-2 px-4 pt-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>
+                                        {shortLabel(key)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                        {groups[key][0]?.unit ? `(${groups[key][0].unit})` : ''}
+                                    </span>
+                                </div>
+                            )}
+                            <div style={{ height: chartH }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={groups[key]} margin={{ top: 6, right: 20, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                                        <XAxis
+                                            dataKey="date"
+                                            tickFormatter={formatDate}
+                                            tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickMargin={6}
+                                            hide={isMulti && index < groupKeys.length - 1}
+                                        />
+                                        <YAxis
+                                            tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            width={38}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="value"
+                                            stroke={color}
+                                            strokeWidth={2}
+                                            dot={<CustomDot />}
+                                            activeDot={{ r: 6, strokeWidth: 0, fill: color }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {isMulti && index < groupKeys.length - 1 && (
+                                <div className="mx-4 border-t border-slate-100" />
+                            )}
+                        </div>
+                    ));
+                })()}
             </div>
 
             {/* Divider */}
