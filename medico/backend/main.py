@@ -182,6 +182,7 @@ async def upload_exam(file: UploadFile = File(...)):
     - "Função Renal": Agrupe "Creatinina", "Ureia", "TFG (CKD-EPI)" sob este `parent_name`.
     - "Bilirrubina Total e Frações": Agrupe "Bilirrubina Total", "Direta" e "Indireta" sob este `parent_name`.
     - "Tireoide": Agrupe "TSH", "T3 Total", "T3 Livre", "T4 Total", "T4 Livre" e Anticorpos (Anti-TPO, etc) sob este `parent_name`.
+    - "Função Pancreática": Agrupe "Amilase Total", "Lipase" sob este `parent_name`.
 
     ✅ NUNCA IGNORE — MARCADORES OBRIGATÓRIOS:
     Estes marcadores são OBRIGATÓRIOS e devem ser sempre extraídos:
