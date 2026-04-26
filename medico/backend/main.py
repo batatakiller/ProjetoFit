@@ -159,6 +159,7 @@ async def upload_exam(file: UploadFile = File(...)):
     - Para Hemoglobina Glicada: Use `parent_name = "Hemoglobina Glicada (HbA1c)"`. Use `name = "HbA1c (%)"` para o resultado percentual e `name = "Glicose Média Estimada"` para a glicose estimada. NUNCA use variantes como "Resultado HBA1C", "HBA1C", "Hemoglobina Glicada Fração A1c".
     - Sempre use "Testosterona Total" e "Testosterona Livre" de forma padronizada.
     - Sempre use "Hormônio Folículo Estimulante - FSH" (use "-" e não "/").
+    - Sempre use "IGF1 / Somatomedina C" (remova variações de espaços).
     - Mantenha nomes curtos e objetivos.
 
     🩸 REGRA ESPECIAL — HEMOGRAMA:
