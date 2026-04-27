@@ -213,6 +213,10 @@ function TreinosView() {
 function MedidasView() {
     const [measurements, setMeasurements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({
+        weight_kg: '', body_fat_pct: '', muscle_mass_kg: '', height_cm: ''
+    });
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const patientId = 'cc40ee24-41f4-48b1-a8fb-5a91188ff1a7';
@@ -231,6 +235,26 @@ function MedidasView() {
 
     React.useEffect(() => { fetchMeasurements(); }, []);
 
+    const handleCreate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axios.post(`${apiUrl}/trainer/body-measurements`, {
+                patient_id: patientId,
+                measurement_date: new Date().toISOString().split('T')[0],
+                weight_kg: parseFloat(formData.weight_kg),
+                body_fat_pct: formData.body_fat_pct ? parseFloat(formData.body_fat_pct) : null,
+                muscle_mass_kg: formData.muscle_mass_kg ? parseFloat(formData.muscle_mass_kg) : null,
+                height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
+                source: "manual"
+            });
+            setShowForm(false);
+            setFormData({ weight_kg: '', body_fat_pct: '', muscle_mass_kg: '', height_cm: '' });
+            fetchMeasurements();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-end">
@@ -238,10 +262,37 @@ function MedidasView() {
                     <h2 className="text-2xl font-bold text-white tracking-tight">Evolução Corporal</h2>
                     <p className="text-slate-400 mt-1">Acompanhe peso, percentual de gordura e medidas de fita.</p>
                 </div>
-                <button className="px-4 py-2 bg-slate-800 border border-slate-700 text-white font-semibold text-sm rounded-xl hover:bg-slate-700 transition">
-                    + Registro Manual
+                <button 
+                    onClick={() => setShowForm(!showForm)}
+                    className="px-4 py-2 bg-slate-800 border border-slate-700 text-white font-semibold text-sm rounded-xl hover:bg-slate-700 transition"
+                >
+                    {showForm ? 'Cancelar' : '+ Registro Manual'}
                 </button>
             </div>
+
+            {showForm && (
+                <form onSubmit={handleCreate} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Peso (kg)*</label>
+                        <input required type="number" step="0.1" value={formData.weight_kg} onChange={e => setFormData({...formData, weight_kg: e.target.value})} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-orange-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Gordura (%)</label>
+                        <input type="number" step="0.1" value={formData.body_fat_pct} onChange={e => setFormData({...formData, body_fat_pct: e.target.value})} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-orange-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">M. Muscular (kg)</label>
+                        <input type="number" step="0.1" value={formData.muscle_mass_kg} onChange={e => setFormData({...formData, muscle_mass_kg: e.target.value})} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-orange-500 outline-none" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Altura (cm)</label>
+                        <input type="number" step="0.1" value={formData.height_cm} onChange={e => setFormData({...formData, height_cm: e.target.value})} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:border-orange-500 outline-none" />
+                    </div>
+                    <button type="submit" className="w-full py-2 bg-orange-500 text-white font-semibold text-sm rounded-lg hover:bg-orange-600 transition">
+                        Salvar
+                    </button>
+                </form>
+            )}
             
             {loading ? (
                 <div className="animate-pulse space-y-4">
