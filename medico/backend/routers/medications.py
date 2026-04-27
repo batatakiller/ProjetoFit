@@ -45,7 +45,11 @@ def fetch_rxnorm_and_openfda(med_id: str, name: str):
     # 1. Gemini translation to English (since RxNorm is US-centric)
     try:
         if ai_client:
-            prompt = f"Traduza o nome do seguinte medicamento/princípio ativo para o nome oficial genérico em inglês. Retorne APENAS o nome em inglês, sem pontuação ou explicações: '{name}'"
+            prompt = f"""
+Traduza o nome do seguinte medicamento ou princípio ativo comercializado no Brasil para o seu respectivo nome oficial genérico em inglês (Ex: Cipionato de Testosterona -> testosterone cypionate).
+Regra CRÍTICA: Se o termo fornecido '{name}' NÃO for um medicamento, suplemento ou princípio ativo real, retorne EXATAMENTE a palavra 'UNKNOWN'. Não invente traduções para termos que não são medicamentos.
+Retorne APENAS o nome em inglês ou a palavra 'UNKNOWN', sem pontuação ou explicações adicionais.
+"""
             response = ai_client.models.generate_content(
                 model='gemini-2.5-flash-lite',
                 contents=prompt
@@ -55,6 +59,10 @@ def fetch_rxnorm_and_openfda(med_id: str, name: str):
         else:
             english_name = name
             
+        if english_name == 'UNKNOWN':
+            print(f"[{name}] Não é um medicamento válido, ignorando busca no RxNorm.")
+            return
+
         # 2. RxNorm API
         rxnav_url = f"https://rxnav.nlm.nih.gov/REST/rxcui.json?name={english_name}"
         res = requests.get(rxnav_url)
