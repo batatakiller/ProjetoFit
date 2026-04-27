@@ -239,7 +239,39 @@ async def upload_exam(file: UploadFile = File(...)):
     # Insert Biomarkers with Deduplication Check
     if extraction.biomarkers:
         new_biomarkers = []
+        
+        def force_canonical_name(name: str):
+            n = name.lower()
+            if 'tsh' in n or 'tireoestimulante' in n: return "TSH", "Tireoide"
+            if 't4 livre' in n or 'tiroxina livre' in n: return "T4 Livre", "Tireoide"
+            if 't4 total' in n or 'tiroxina total' in n: return "T4 Total", "Tireoide"
+            if 't3 livre' in n: return "T3 Livre", "Tireoide"
+            if 't3' in n or 'triiodotironina' in n: return "T3", "Tireoide"
+            if 'dhea' in n or 'dehidroepiandrosterona' in n: return "DHEA", None
+            if 'dht' in n or 'dihidrotestosterona' in n or 'dehidrotestosterona' in n: return "DHT", None
+            if 'fsh' in n or 'folículo estimulante' in n or 'foliculo estimulante' in n: return "FSH", None
+            if 'lh' in n or 'luteinizante' in n: return "LH", None
+            if 'shbg' in n or 'globulina ligadora' in n or 'globulina de ligação' in n: return "SHBG", None
+            if 'cortisol' in n: return "Cortisol", None
+            if 'insulina livre' in n or n == 'insulina': return "Insulina", None
+            if 'gama gt' in n or 'glutamil transferase' in n: return "Gama GT", "Função Hepática"
+            if 'tgo' in n or 'oxalacética' in n or 'aspartato' in n: return "TGO (AST)", "Função Hepática"
+            if 'tgp' in n or 'pirúvica' in n or 'alanina' in n: return "TGP (ALT)", "Função Hepática"
+            if 'proteína c reativa' in n or 'proteina c reativa' in n: return "Proteína C Reativa", None
+            if 'ácido fólico' in n or 'acido folico' in n: return "Ácido Fólico", None
+            if 'vitamina b12' in n: return "Vitamina B12", None
+            if 'vitamina d' in n: return "Vitamina D", None
+            if 'hba1c' in n or 'glicada' in n: return "Hemoglobina glicada (Fração A1c)", "Hemoglobina Glicada (HbA1c)"
+            return None, None
+
         for b in extraction.biomarkers:
+            # --- TABELA MESTRA DE INTERCEPTAÇÃO ---
+            canonical_name, canonical_group = force_canonical_name(b.name)
+            if canonical_name:
+                b.name = canonical_name
+            if canonical_group:
+                b.parent_name = canonical_group
+
             # --- NORMALIZAÇÃO VETORIAL (TUSS) ---
             try:
                 # 1. Gerar embedding do nome extraído
@@ -268,7 +300,8 @@ async def upload_exam(file: UploadFile = File(...)):
                 catalog_match = supabase.table("exam_catalog").select("*").ilike("name", b.name).execute()
                 if catalog_match.data:
                     match = catalog_match.data[0]
-                    b.name = match["name"]
+                    # REMOVIDO: b.name = match["name"]
+
                     b.tuss_code = match["tuss_code"]
                     b.sip_group = match["sip_group"]
                     b.observations = match["observations"]
