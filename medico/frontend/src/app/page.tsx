@@ -705,6 +705,10 @@ function MedicationsView() {
     const [formData, setFormData] = useState({
         name: '', dosage: '', frequency: '', purpose: '', start_date: new Date().toISOString().split('T')[0]
     });
+    
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const patientId = 'default';
@@ -734,10 +738,40 @@ function MedicationsView() {
             });
             setShowForm(false);
             setFormData({ name: '', dosage: '', frequency: '', purpose: '', start_date: new Date().toISOString().split('T')[0] });
+            setShowSuggestions(false);
             fetchMedications();
         } catch (e) {
             console.error("Erro ao adicionar", e);
         }
+    };
+
+    const fetchSuggestions = async (query: string) => {
+        if (query.length < 3) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        try {
+            const res = await axios.get(`https://clinicaltables.nlm.nih.gov/api/rxterms/v3/search?terms=${query}`);
+            // The API returns [count, [terms], null, [[terms]]]
+            if (res.data && res.data[1]) {
+                setSuggestions(res.data[1]);
+                setShowSuggestions(true);
+            }
+        } catch (e) {
+            console.error("Erro ao buscar sugestões", e);
+        }
+    };
+
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setFormData({...formData, name: val});
+        fetchSuggestions(val);
+    };
+
+    const selectSuggestion = (suggestion: string) => {
+        setFormData({...formData, name: suggestion});
+        setShowSuggestions(false);
     };
 
     const handleToggleActive = async (id: string, currentStatus: boolean) => {
@@ -818,9 +852,30 @@ function MedicationsView() {
                 <form onSubmit={handleAdd} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                     <h3 className="font-semibold text-slate-800 mb-2">Adicionar Medicamento</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="col-span-2">
+                        <div className="col-span-2 relative">
                             <label className="block text-xs font-medium text-slate-500 mb-1">Nome do Medicamento</label>
-                            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Ex: Metformina" />
+                            <input 
+                                required 
+                                value={formData.name} 
+                                onChange={handleNameChange} 
+                                onFocus={() => formData.name.length >= 3 && setShowSuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" 
+                                placeholder="Ex: Metformina (ou termo em inglês para busca na base NIH)" 
+                            />
+                            {showSuggestions && suggestions.length > 0 && (
+                                <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto custom-scrollbar">
+                                    {suggestions.map((sug, idx) => (
+                                        <li 
+                                            key={idx} 
+                                            onClick={() => selectSuggestion(sug)}
+                                            className="px-3 py-2 text-sm text-slate-700 hover:bg-teal-50 cursor-pointer border-b border-slate-50 last:border-0"
+                                        >
+                                            {sug}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-500 mb-1">Dosagem</label>
