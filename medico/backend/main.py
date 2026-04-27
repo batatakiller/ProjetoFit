@@ -253,7 +253,8 @@ async def upload_exam(file: UploadFile = File(...)):
             if 'lh' in n or 'luteinizante' in n: return "LH", None
             if 'shbg' in n or 'globulina ligadora' in n or 'globulina de ligação' in n: return "SHBG", None
             if 'cortisol' in n: return "Cortisol", None
-            if 'insulina livre' in n or n == 'insulina': return "Insulina", None
+            if 'insulina livre' in n: return "Insulina Livre", None
+            if 'insulina' in n: return "Insulina", None
             if 'gama gt' in n or 'glutamil transferase' in n: return "Gama GT", "Função Hepática"
             if 'tgo' in n or 'oxalacética' in n or 'aspartato' in n: return "TGO (AST)", "Função Hepática"
             if 'tgp' in n or 'pirúvica' in n or 'alanina' in n: return "TGP (ALT)", "Função Hepática"
@@ -261,7 +262,41 @@ async def upload_exam(file: UploadFile = File(...)):
             if 'ácido fólico' in n or 'acido folico' in n: return "Ácido Fólico", None
             if 'vitamina b12' in n: return "Vitamina B12", None
             if 'vitamina d' in n: return "Vitamina D", None
-            if 'hba1c' in n or 'glicada' in n: return "Hemoglobina glicada (Fração A1c)", "Hemoglobina Glicada (HbA1c)"
+            if 'vitamina c' in n or 'ácido ascórbico' in n or 'acido ascorbico' in n: return "Vitamina C", None
+            if 'hba1c' in n or 'glicada' in n or 'fração a1c' in n: return "Hemoglobina Glicada (HbA1c)", "Glicemia e Insulina"
+            if 'glicose média' in n or 'glicose media' in n: return "Glicose Média Estimada", "Glicemia e Insulina"
+            if 'glicose' in n and 'média' not in n and 'media' not in n: return "Glicose", "Glicemia e Insulina"
+            if 'estrona' in n: return "Estrona", None
+            if 'estradiol' in n: return "Estradiol", None
+            if 'prolactina' in n: return "Prolactina", None
+            if 'progesterona' in n: return "Progesterona", None
+            if 'testosterona livre' in n: return "Testosterona Livre", None
+            if 'testosterona total' in n: return "Testosterona Total", None
+            if 'zinco' in n: return "Zinco", None
+            if 'magnésio' in n or 'magnesio' in n: return "Magnésio", None
+            if 'cálcio iônico' in n or 'cálcio lônico' in n or 'calcio ionico' in n: return "Cálcio Iônico", None
+            if 'cálcio' in n or 'calcio' in n: return "Cálcio", None
+            if 'sódio' in n or 'sodio' in n: return "Sódio", None
+            if 'potássio' in n or 'potassio' in n: return "Potássio", None
+            if 'ferro' in n: return "Ferro", None
+            if 'ferritina' in n: return "Ferritina", None
+            if 'homocisteína' in n or 'homocistina' in n or 'homocisteina' in n: return "Homocisteína", None
+            if 'psa livre' in n: return "PSA Livre", "PSA Livre / Total"
+            if 'psa total' in n: return "PSA Total", "PSA Livre / Total"
+            if 'relação psa' in n or 'relacao psa' in n: return "Relação PSA Livre/Total", "PSA Livre / Total"
+            if 'ureia' in n or 'uréia' in n: return "Ureia", "Função Renal"
+            if 'creatinina' in n and 'clearance' not in n: return "Creatinina", "Função Renal"
+            if 'taxa de filtração' in n or 'taxa de filtracao' in n or 'filtração glomerular' in n: return "Taxa de Filtração Glomerular", "Função Renal"
+            if 'ck' in n or 'fosfoquinase' in n: return "CK (Creatina Fosfoquinase)", None
+            if 'colesterol total' in n: return "Colesterol Total", "Colesterol Total e Frações"
+            if 'hdl' in n: return "Colesterol HDL", "Colesterol Total e Frações"
+            if 'ldl' in n: return "Colesterol LDL", "Colesterol Total e Frações"
+            if 'vldl' in n: return "Colesterol VLDL", "Colesterol Total e Frações"
+            if 'triglicérides' in n or 'triglicerideos' in n or 'triglicerídeos' in n: return "Triglicérides", "Colesterol Total e Frações"
+            if 'ttpa' in n or 'tromboplastina' in n: return "TTPA", "Coagulograma"
+            if 'tap' in n or 'atividade da protrombina' in n: return "TAP", "Coagulograma"
+            if 'tempo de sangramento' in n: return "Tempo de Sangramento", "Coagulograma"
+            if 'albumina' in n: return "Albumina", None
             return None, None
 
         for b in extraction.biomarkers:
