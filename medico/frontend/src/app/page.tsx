@@ -15,7 +15,7 @@ import axios from 'axios';
 // Mock Data
 interface DataPoint {
     date: string;
-    value: number;
+    value: number | null;
     subName?: string;
     unit?: string;
 }
@@ -262,12 +262,33 @@ function DashboardView() {
 
                 const normalizeName = (str?: string) => {
                     if (!str) return '';
-                    return str
+                    let n = str
                         .toLowerCase()
                         .normalize("NFD")
                         .replace(/[\u0300-\u036f]/g, "") // remove acentos
-                        .replace(/\s*[-|,]\s*pesquisa e\/ou dosagem/i, "") // remove sufixo comum
+                        .replace(/\s*\([^)]*\)/g, "") // remove tudo entre parênteses (ex: (DHEA), (TSH))
+                        .replace(/\s*[-|,]\s*pesquisa e\/ou dosagem/i, "") // remove sufixo comum TUSS
+                        .replace(/,\s*contagem/i, "")
+                        .replace(/,\s*determinacao do/i, "")
                         .trim();
+                    
+                    // Mapeamento de Sinônimos Comuns para unificação total
+                    const synonyms: Record<string, string> = {
+                        'hormonio tireoestimulante': 'tsh',
+                        'tiroxina livre': 't4 livre',
+                        'triiodotironina': 't3',
+                        'eritrocitos': 'hemacias',
+                        'dehidroepiandrosterona': 'dhea',
+                        'globulina ligadora de hormonios sexuais': 'shbg',
+                        'globulina de ligacao de hormonios sexuais': 'shbg',
+                        'creatina fosfoquinase': 'ck',
+                        'creatino fosfoquinase': 'ck',
+                        'proteina c reativa, quantitativa': 'proteina c reativa',
+                        'proteina c reativa - ultrassensivel': 'proteina c reativa',
+                        'homocistina, pesquisa de': 'homocisteina'
+                    };
+                    
+                    return synonyms[n] || n;
                 };
 
                 rawData.forEach((row: any) => {
@@ -330,10 +351,13 @@ function DashboardView() {
                 Object.values(markerMap).forEach(m => {
                     m.data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                     if (m.data.length > 1) {
-                        const last = m.data[m.data.length - 1].value;
-                        const prev = m.data[m.data.length - 2].value;
-                        if (last > prev) m.trend = 'up';
-                        else if (last < prev) m.trend = 'down';
+                        const validData = m.data.filter(d => d.value !== null);
+                        if (validData.length > 1) {
+                            const last = validData[validData.length - 1].value!;
+                            const prev = validData[validData.length - 2].value!;
+                            if (last > prev) m.trend = 'up';
+                            else if (last < prev) m.trend = 'down';
+                        }
                     }
                 });
 
@@ -514,10 +538,19 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                         groups[key].push(d);
                     });
 
-                    // Ordenar pontos dentro de cada grupo por data
-                    Object.values(groups).forEach(pts =>
-                        pts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                    );
+                    // Coletar todas as datas únicas para esse card e ordenar
+                    const allDates = Array.from(new Set(marker.data.map(d => d.date))).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+                    // Preencher buracos (datas faltantes) para alinhar o eixo X perfeitamente
+                    Object.keys(groups).forEach(key => {
+                        const pts = groups[key];
+                        const ptsByDate = Object.fromEntries(pts.map(p => [p.date, p]));
+                        
+                        groups[key] = allDates.map(date => {
+                            if (ptsByDate[date]) return ptsByDate[date];
+                            return { date, value: null, unit: pts[0]?.unit, subName: key };
+                        });
+                    });
 
                     const groupKeys = Object.keys(groups);
                     const isMulti = groupKeys.length > 1;
@@ -538,7 +571,7 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                                         {shortLabel(key)}
                                     </span>
                                     <span className="text-[10px] text-slate-400">
-                                        {groups[key][0]?.unit ? `(${groups[key][0].unit})` : ''}
+                                        {groups[key].find(d => d.unit)?.unit ? `(${groups[key].find(d => d.unit)?.unit})` : ''}
                                     </span>
                                 </div>
                             )}
@@ -569,6 +602,7 @@ function BiomarkerCard({ marker, color }: { marker: Biomarker; color: string }) 
                                             strokeWidth={2}
                                             dot={<CustomDot />}
                                             activeDot={{ r: 6, strokeWidth: 0, fill: color }}
+                                            connectNulls={true}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
