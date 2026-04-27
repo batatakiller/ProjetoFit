@@ -8,7 +8,7 @@ import {
 import { 
   Activity, FlaskConical, Sun, Droplets, User, Upload, LayoutDashboard, 
   FileText, CheckCircle, AlertTriangle, TrendingUp, TrendingDown, Minus, 
-  ChevronRight, Brain, Sparkles, X, Save, MessageCircle, Send
+  ChevronRight, Brain, Sparkles, X, Save, MessageCircle, Send, Pill
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -82,7 +82,8 @@ export default function App() {
                     {[
                         { id: 'profile', label: 'Meu Perfil', icon: User },
                         { id: 'upload', label: 'Importar Exame', icon: Upload },
-                        { id: 'dashboard', label: 'Histórico Geral', icon: LayoutDashboard }
+                        { id: 'dashboard', label: 'Histórico Geral', icon: LayoutDashboard },
+                        { id: 'medications', label: 'Medicamentos', icon: Pill }
                     ].map(item => {
                         const Icon = item.icon;
                         const isActive = activeTab === item.id;
@@ -105,6 +106,7 @@ export default function App() {
                 {activeTab === 'profile' && <ProfileView />}
                 {activeTab === 'upload' && <UploadView />}
                 {activeTab === 'dashboard' && <DashboardView />}
+                {activeTab === 'medications' && <MedicationsView />}
             </div>
             
             {/* Native Chat Component */}
@@ -688,6 +690,220 @@ function ChatAgent() {
                     <Send className="w-4 h-4" />
                 </button>
             </div>
+        </div>
+    );
+}
+
+function MedicationsView() {
+    const [medications, setMedications] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [interactions, setInteractions] = useState<string | null>(null);
+    const [checkingInteractions, setCheckingInteractions] = useState(false);
+    
+    // Form state
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({
+        name: '', dosage: '', frequency: '', purpose: '', start_date: new Date().toISOString().split('T')[0]
+    });
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const patientId = 'default';
+
+    const fetchMedications = async () => {
+        setLoading(true);
+        try {
+            const res = await axios.get(`${apiUrl}/medications?patient_id=${patientId}`);
+            setMedications(res.data.data || []);
+        } catch (e) {
+            console.error("Erro ao carregar medicamentos", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchMedications();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axios.post(`${apiUrl}/medications`, {
+                patient_id: patientId,
+                ...formData
+            });
+            setShowForm(false);
+            setFormData({ name: '', dosage: '', frequency: '', purpose: '', start_date: new Date().toISOString().split('T')[0] });
+            fetchMedications();
+        } catch (e) {
+            console.error("Erro ao adicionar", e);
+        }
+    };
+
+    const handleToggleActive = async (id: string, currentStatus: boolean) => {
+        try {
+            await axios.put(`${apiUrl}/medications/${id}`, {
+                is_active: !currentStatus,
+                end_date: !currentStatus ? null : new Date().toISOString().split('T')[0]
+            });
+            fetchMedications();
+        } catch (e) {
+            console.error("Erro ao atualizar", e);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Tem certeza que deseja remover este medicamento?")) return;
+        try {
+            await axios.delete(`${apiUrl}/medications/${id}`);
+            fetchMedications();
+        } catch (e) {
+            console.error("Erro ao deletar", e);
+        }
+    };
+
+    const checkInteractions = async () => {
+        setCheckingInteractions(true);
+        setInteractions(null);
+        try {
+            const res = await axios.post(`${apiUrl}/medications/check-interactions?patient_id=${patientId}`);
+            setInteractions(res.data.interactions);
+        } catch (e) {
+            console.error("Erro ao checar interações", e);
+            setInteractions("Erro ao checar interações. Tente novamente.");
+        } finally {
+            setCheckingInteractions(false);
+        }
+    };
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Medicamentos em Uso</h2>
+                    <p className="text-slate-500 mt-1">Gerencie prescrições, valide interações e consulte efeitos adversos.</p>
+                </div>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={checkInteractions}
+                        disabled={checkingInteractions}
+                        className="px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold text-sm rounded-xl hover:bg-indigo-100 transition flex items-center gap-2"
+                    >
+                        <Brain className="w-4 h-4" />
+                        {checkingInteractions ? "Analisando..." : "Checar Interações (IA)"}
+                    </button>
+                    <button 
+                        onClick={() => setShowForm(!showForm)}
+                        className="px-4 py-2 bg-teal-600 text-white font-semibold text-sm rounded-xl hover:bg-teal-700 transition shadow-sm"
+                    >
+                        {showForm ? "Cancelar" : "+ Nova Prescrição"}
+                    </button>
+                </div>
+            </div>
+
+            {interactions && (
+                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex gap-3 items-start">
+                    <AlertTriangle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                    <div className="text-sm text-indigo-900 whitespace-pre-wrap leading-relaxed">
+                        <span className="font-semibold block mb-1">Análise Farmacológica:</span>
+                        {interactions}
+                    </div>
+                    <button onClick={() => setInteractions(null)} className="ml-auto text-indigo-400 hover:text-indigo-600">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
+            {showForm && (
+                <form onSubmit={handleAdd} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="font-semibold text-slate-800 mb-2">Adicionar Medicamento</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Nome do Medicamento</label>
+                            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Ex: Metformina" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Dosagem</label>
+                            <input required value={formData.dosage} onChange={e => setFormData({...formData, dosage: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Ex: 500mg" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Frequência</label>
+                            <input required value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Ex: 12/12h" />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Motivo / Indicação</label>
+                            <input value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" placeholder="Ex: Controle glicêmico" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Data de Início</label>
+                            <input type="date" required value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                        </div>
+                        <div className="flex items-end">
+                            <button type="submit" className="w-full py-2 bg-slate-800 text-white font-medium text-sm rounded-lg hover:bg-slate-900 transition flex items-center justify-center gap-2">
+                                <Save className="w-4 h-4" /> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            )}
+
+            {loading ? (
+                <div className="animate-pulse space-y-4">
+                    {[1,2,3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-2xl w-full"></div>)}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {medications.map(med => (
+                        <div key={med.id} className={`p-5 rounded-2xl border transition-all ${med.is_active ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                        {med.name} 
+                                        {med.rxnorm_id && <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded font-mono border border-teal-100" title="Verificado pelo RxNorm">Rx</span>}
+                                    </h4>
+                                    <p className="text-sm font-medium text-slate-500">{med.dosage} • {med.frequency}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleToggleActive(med.id, med.is_active)} className="p-1.5 hover:bg-slate-100 rounded-md transition" title={med.is_active ? "Marcar como Suspenso" : "Reativar"}>
+                                        <CheckCircle className={`w-4 h-4 ${med.is_active ? 'text-teal-500' : 'text-slate-400'}`} />
+                                    </button>
+                                    <button onClick={() => handleDelete(med.id)} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition" title="Remover">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {med.purpose && <p className="text-xs text-slate-600 mb-4 bg-slate-50 p-2 rounded-lg border border-slate-100">Indic.: {med.purpose}</p>}
+                            
+                            {med.adverse_effects_summary && Object.keys(med.adverse_effects_summary).length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Top Efeitos (OpenFDA)</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {Object.entries(med.adverse_effects_summary).map(([effect, count]) => (
+                                            <span key={effect} className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-100">
+                                                {effect.toLowerCase()}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="mt-4 text-[10px] text-slate-400 flex justify-between items-center">
+                                <span>Início: {med.start_date}</span>
+                                {!med.is_active && <span>Fim: {med.end_date || 'Suspenso'}</span>}
+                            </div>
+                        </div>
+                    ))}
+                    {medications.length === 0 && (
+                        <div className="col-span-full p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                            Nenhum medicamento registrado para este paciente.
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

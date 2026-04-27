@@ -14,6 +14,11 @@ if os.path.exists("../../.env"):
 
 app = FastAPI(title="Medical AI Dashboard API")
 
+# Import routers after app initialization to avoid circular dependencies if routers import from main
+import routers.medications as medications
+
+app.include_router(medications.router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,6 +26,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Initialize Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
