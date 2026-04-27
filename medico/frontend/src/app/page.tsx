@@ -711,7 +711,7 @@ function MedicationsView() {
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const patientId = 'default';
+    const patientId = 'cc40ee24-41f4-48b1-a8fb-5a91188ff1a7'; // ID real do paciente de teste
 
     const fetchMedications = async () => {
         setLoading(true);
