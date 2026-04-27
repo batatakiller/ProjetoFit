@@ -16,8 +16,10 @@ app = FastAPI(title="Medical AI Dashboard API")
 
 # Import routers after app initialization to avoid circular dependencies if routers import from main
 import routers.medications as medications
+import routers.trainer as trainer
 
 app.include_router(medications.router)
+app.include_router(trainer.router)
 
 app.add_middleware(
     CORSMiddleware,
