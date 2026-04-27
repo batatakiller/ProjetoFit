@@ -260,6 +260,16 @@ function DashboardView() {
 
                 const markerMap: Record<string, Biomarker> = {};
 
+                const normalizeName = (str?: string) => {
+                    if (!str) return '';
+                    return str
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "") // remove acentos
+                        .replace(/\s*[-|,]\s*pesquisa e\/ou dosagem/i, "") // remove sufixo comum
+                        .trim();
+                };
+
                 rawData.forEach((row: any) => {
                     const catStr = row.category ? row.category.toLowerCase() : 'outros';
                     let cat = 'outros';
@@ -272,16 +282,21 @@ function DashboardView() {
                     // Para Hemograma: criar um card por sub_category (Série Vermelha, Série Branca, Plaquetas)
                     // Para outros agrupados (parent_name): um card por parent
                     // Para itens sem parent: um card por name
-                    let key: string;
+                    let rawKey: string;
                     if (row.parent_name === 'Hemograma' && row.sub_category) {
-                        key = `Hemograma — ${row.sub_category}`;
+                        rawKey = `Hemograma — ${row.sub_category}`;
                     } else {
-                        key = row.parent_name || row.name;
+                        rawKey = row.parent_name || row.name;
                     }
 
-                    if (!markerMap[key]) {
-                        markerMap[key] = {
-                            name: key,
+                    const normKey = normalizeName(rawKey);
+
+                    if (!markerMap[normKey]) {
+                        // Limpa o nome para exibição bonita
+                        const displayKey = rawKey.replace(/\s*[-|,]\s*pesquisa e\/ou dosagem/ig, "");
+                        
+                        markerMap[normKey] = {
+                            name: displayKey,
                             unit: '',
                             data: [],
                             ref: row.reference_range || '-',
@@ -290,21 +305,23 @@ function DashboardView() {
                             subCategory: row.sub_category || undefined
                         };
                         if (!grouped[cat]) grouped[cat] = [];
-                        grouped[cat].push(markerMap[key]);
+                        grouped[cat].push(markerMap[normKey]);
                     }
 
                     const date = row.collection_date || row.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
                     const value = row.value;
 
                     // Cada marcador individual vira um subName (para gráfico próprio dentro do card)
-                    const subName = row.name;
+                    const rawSubName = row.name;
+                    const displaySubName = rawSubName.replace(/\s*[-|,]\s*pesquisa e\/ou dosagem/ig, "");
+                    const normSubName = normalizeName(rawSubName);
 
                     // Deduplicar
-                    const isDuplicate = markerMap[key].data.some(p => p.date === date && p.value === value && p.subName === subName);
+                    const isDuplicate = markerMap[normKey].data.some(p => p.date === date && p.value === value && normalizeName(p.subName) === normSubName);
                     if (!isDuplicate) {
-                        markerMap[key].data.push({ date, value, subName, unit: row.unit });
-                        if (!markerMap[key].rawValue) markerMap[key].rawValue = row.raw_value || undefined;
-                        if (!markerMap[key].isAbnormal) markerMap[key].isAbnormal = row.is_abnormal || false;
+                        markerMap[normKey].data.push({ date, value, subName: displaySubName, unit: row.unit });
+                        if (!markerMap[normKey].rawValue) markerMap[normKey].rawValue = row.raw_value || undefined;
+                        if (!markerMap[normKey].isAbnormal) markerMap[normKey].isAbnormal = row.is_abnormal || false;
                     }
                 });
 
