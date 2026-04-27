@@ -252,7 +252,7 @@ async def upload_exam(file: UploadFile = File(...)):
                 # 2. Buscar no catálogo via RPC (Similaridade Vetorial)
                 catalog_match = supabase.rpc("match_exams", {
                     "query_embedding": query_vector,
-                    "match_threshold": 0.8, # 80% de similaridade
+                    "match_threshold": 0.5, # 50% de similaridade (menos rigoroso para capturar sinônimos)
                     "match_count": 1
                 }).execute()
                 
