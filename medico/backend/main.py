@@ -258,7 +258,7 @@ async def upload_exam(file: UploadFile = File(...)):
                 
                 if catalog_match.data:
                     match = catalog_match.data[0]
-                    b.name = match["name"] # Substituir pelo nome oficial da Tabela Mestra
+                    # REMOVIDO: b.name = match["name"] -> Mantém o nome limpo extraído pelo Gemini!
                     b.tuss_code = match["tuss_code"]
                     b.sip_group = match["sip_group"]
                     b.observations = match["observations"]
